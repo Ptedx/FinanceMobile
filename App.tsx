@@ -1,20 +1,29 @@
+import React, { useEffect } from 'react';
+import { PaperProvider } from 'react-native-paper';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AppNavigator } from './src/navigation/AppNavigator';
+import { useFinanceStore } from './src/store/financeStore';
+import { seedDemoData } from './src/utils/seedData';
+import { theme } from './src/theme';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
 
 export default function App() {
+  const initialize = useFinanceStore(state => state.initialize);
+
+  useEffect(() => {
+    const initApp = async () => {
+      await initialize();
+      await seedDemoData();
+    };
+    initApp();
+  }, []);
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <PaperProvider theme={theme}>
+        <StatusBar style="auto" />
+        <AppNavigator />
+      </PaperProvider>
+    </GestureHandlerRootView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
