@@ -1,0 +1,149 @@
+🧠 Conceito Central
+
+O app gira em torno do "gasto inteligente": o usuário cadastra um gasto, e o app atualiza automaticamente orçamentos, metas, limites e projeções, sempre focando na visualização simples e decisões rápidas.
+
+🧩 FUNCIONALIDADES INTELIGENTES
+1. Cadastro inteligente de gastos
+
+Entrada simples com:
+
+Categoria (transporte, alimentação, etc.)
+
+Valor
+
+Data
+
+Método de pagamento (dinheiro, crédito, débito)
+
+Recorrente? (sim/não)
+
+Sugestão de categorias com base em texto via input inteligente.
+
+Suporte para recibo com OCR (tirar foto de nota e preencher automaticamente).
+
+2. Orçamentos mensais por categoria
+
+Defina um orçamento por categoria (ex: R$500 para alimentação).
+
+Ao cadastrar um gasto, o app calcula automaticamente:
+
+Quanto do orçamento foi consumido.
+
+Progresso (%).
+
+Avisos (visual ou push): ex: "Você atingiu 80% do limite de Transporte".
+
+UI com barras de progresso animadas por categoria.
+
+3. Metas financeiras
+
+Crie metas como:
+
+Guardar R$1000 até Dezembro.
+
+Gastar no máximo R$X com lazer.
+
+Gastos são avaliados em tempo real contra metas.
+
+UI com progress circle + ETA (estimativa de alcance da meta com base na média dos últimos meses).
+
+4. Painel financeiro unificado (Dashboard)
+
+Gastos do mês (total e por categoria)
+
+Gráficos (ex: pizza por categoria / linha por dia)
+
+Saldo disponível até o fim do mês
+
+Projeção de gastos futuros com base em histórico
+
+5. Alertas inteligentes
+
+Push notification:
+
+"Você gastou mais esta semana comparado à média mensal."
+
+"Seu limite de Cartão de Crédito já passou 90%."
+
+"Alerta: categoria Lazer ultrapassou o orçamento."
+
+Personalização do nível de alerta (moderado, rígido, flexível)
+
+6. Modo econômico
+
+Quando ativado, o app sugere cortes:
+
+"Você pode economizar R$X evitando gastos em [categoria] nos próximos dias."
+
+Sugestões de metas alternativas com base nos cortes.
+
+7. Timeline financeira
+
+Lista cronológica dos gastos.
+
+Marcação por cores (verde = abaixo do limite; vermelho = acima).
+
+Filtro por categoria, método de pagamento, recorrência.
+
+8. Sincronização com calendário
+
+Integração com calendário (Google Calendar, iOS Calendar):
+
+Visualizar gastos por dia.
+
+Lembretes de contas fixas (água, luz etc.)
+
+9. Resumo mensal automatizado
+
+Todo mês, gerar um relatório:
+
+Total de gastos
+
+Categorias mais gastas
+
+Comparação com mês anterior
+
+Progresso das metas
+
+Exportação para PDF ou envio por e-mail.
+
+10. Modo offline + sincronização automática
+
+Suporte a uso offline.
+
+Sincroniza com o banco de dados local (ex: SQLite) e remoto (Firebase, Supabase) ao reconectar.
+
+⚙️ TECNICAMENTE, COMO ESTRUTURAR
+📦 Estados globais
+
+Usar Zustand, Redux ou Context API para controlar:
+
+expenses, budgets, goals, alerts
+
+Ex: expensesState = [{ id, category, value, date, method }]
+
+📊 Lógica automática
+
+Hook customizado: useFinanceEngine()
+
+Atualiza estados derivados como:
+
+remainingBudget
+
+goalProgress
+
+monthlyTotal
+
+🔔 Notificações
+
+react-native-push-notification para alertas locais.
+
+Sistema de regras: por exemplo, se budget.percentUsed > 0.8 → dispara alerta.
+
+🧪 EXTRAS AVANÇADOS (futuros)
+
+IA generativa para análise de gastos: "Em que posso economizar este mês?"
+
+Backup automático no Google Drive / iCloud.
+
+Comparação com outros usuários (anonimamente): "Você gasta 30% mais em alimentação que a média."
