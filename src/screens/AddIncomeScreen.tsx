@@ -23,7 +23,7 @@ type IncomeFormData = z.infer<typeof incomeSchema>;
 
 export const AddIncomeScreen = ({ navigation }: any) => {
   const { theme } = useThemeStore();
-  const { addIncome, goals, updateGoal } = useFinanceStore();
+  const { addIncome, goals } = useFinanceStore();
   const [date, setDate] = useState(new Date());
   const [goalAllocations, setGoalAllocations] = useState<GoalAllocation[]>([]);
   const [showGoalAllocation, setShowGoalAllocation] = useState(false);
@@ -78,14 +78,7 @@ export const AddIncomeScreen = ({ navigation }: any) => {
 
     await addIncome(income);
 
-    for (const allocation of goalAllocations) {
-      const goal = goals.find(g => g.id === allocation.goalId);
-      if (goal) {
-        await updateGoal(goal.id, goal.currentAmount + allocation.amount);
-      }
-    }
-
-    navigation.goBack();
+        navigation.goBack();
   };
 
   const styles = StyleSheet.create({
@@ -382,3 +375,5 @@ export const AddIncomeScreen = ({ navigation }: any) => {
     </ScrollView>
   );
 };
+
+

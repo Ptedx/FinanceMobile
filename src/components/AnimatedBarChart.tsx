@@ -6,7 +6,8 @@ import Animated, {
   withSpring,
   withDelay,
 } from 'react-native-reanimated';
-import { theme, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import { useTheme } from 'react-native-paper';
 
 interface BarData {
   label: string;
@@ -19,15 +20,17 @@ interface AnimatedBarChartProps {
 }
 
 export const AnimatedBarChart: React.FC<AnimatedBarChartProps> = ({ data }) => {
+  const theme = useTheme();
+  const s = styles(theme);
   const total = data.reduce((sum, item) => sum + item.value, 0);
   const maxValue = Math.max(...data.map(d => d.value));
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       {data.map((item, index) => {
-        const percentage = (item.value / total) * 100;
-        const width = (item.value / maxValue) * 100;
-        
+        const percentage = total > 0 ? (item.value / total) * 100 : 0;
+        const width = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
+
         return (
           <AnimatedBar
             key={item.label}
@@ -61,6 +64,8 @@ const AnimatedBar: React.FC<AnimatedBarProps> = ({
   color,
   delay,
 }) => {
+  const theme = useTheme();
+  const s = styles(theme);
   const barWidth = useSharedValue(0);
   const opacity = useSharedValue(0);
 
@@ -91,68 +96,69 @@ const AnimatedBar: React.FC<AnimatedBarProps> = ({
   }));
 
   return (
-    <View style={styles.barContainer}>
-      <View style={styles.barHeader}>
-        <Animated.Text style={[styles.barLabel, animatedTextStyle]}>
+    <View style={s.barContainer}>
+      <View style={s.barHeader}>
+        <Animated.Text style={[s.barLabel, animatedTextStyle]}>
           {label}
         </Animated.Text>
-        <Animated.Text style={[styles.barPercentage, animatedTextStyle]}>
+        <Animated.Text style={[s.barPercentage, animatedTextStyle]}>
           {percentage.toFixed(0)}%
         </Animated.Text>
       </View>
-      <View style={styles.barTrack}>
+      <View style={s.barTrack}>
         <Animated.View 
           style={[
-            styles.barFill, 
+            s.barFill, 
             { backgroundColor: color },
             animatedBarStyle,
           ]} 
         />
       </View>
-      <Animated.Text style={[styles.barValue, animatedTextStyle]}>
+      <Animated.Text style={[s.barValue, animatedTextStyle]}>
         R$ {value.toFixed(2)}
       </Animated.Text>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-  },
-  barContainer: {
-    marginBottom: spacing.md,
-  },
-  barHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  barLabel: {
-    ...typography.body,
-    color: theme.colors.onSurface,
-    fontWeight: '500',
-  },
-  barPercentage: {
-    ...typography.bodySmall,
-    color: theme.colors.primary,
-    fontWeight: '600',
-  },
-  barTrack: {
-    width: '100%',
-    height: 24,
-    backgroundColor: theme.colors.surfaceVariant,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: spacing.xs,
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 12,
-  },
-  barValue: {
-    ...typography.bodySmall,
-    color: theme.colors.onSurfaceVariant,
-  },
-});
+const styles = (theme: any) =>
+  StyleSheet.create({
+    container: {
+      width: '100%',
+    },
+    barContainer: {
+      marginBottom: spacing.md,
+    },
+    barHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+    },
+    barLabel: {
+      ...typography.body,
+      color: theme.colors.onSurface,
+      fontWeight: '500',
+    },
+    barPercentage: {
+      ...typography.bodySmall,
+      color: theme.colors.primary,
+      fontWeight: '600',
+    },
+    barTrack: {
+      width: '100%',
+      height: 24,
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 12,
+      overflow: 'hidden',
+      marginBottom: spacing.xs,
+    },
+    barFill: {
+      height: '100%',
+      borderRadius: 12,
+    },
+    barValue: {
+      ...typography.bodySmall,
+      color: theme.colors.onSurfaceVariant,
+    },
+  });

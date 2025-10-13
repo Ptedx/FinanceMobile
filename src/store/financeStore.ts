@@ -75,20 +75,6 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     set(state => ({ expenses: [newExpense, ...state.expenses] }));
     
     get().checkBudgetAlerts();
-    
-    const { incomes, expenses, goals } = get();
-    const totalIncome = incomes.reduce((sum, i) => sum + i.value, 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.value, 0);
-    const currentSavings = totalIncome - totalExpenses;
-    
-    for (const goal of goals) {
-      if (goal.type === 'save') {
-        await db.updateGoal(goal.id, currentSavings);
-        set(state => ({
-          goals: state.goals.map(g => g.id === goal.id ? { ...g, currentAmount: currentSavings } : g),
-        }));
-      }
-    }
   },
 
   loadExpenses: async (startDate, endDate) => {
@@ -104,17 +90,20 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   addIncome: async (income) => {
     const newIncome = await db.addIncome(income);
     set(state => ({ incomes: [newIncome, ...state.incomes] }));
-    
-    const { incomes, expenses, goals } = get();
-    const totalIncome = incomes.reduce((sum, i) => sum + i.value, 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.value, 0);
-    const currentSavings = totalIncome - totalExpenses;
-    
-    for (const goal of goals) {
-      if (goal.type === 'save') {
-        await db.updateGoal(goal.id, currentSavings);
+
+    // Apply goal allocations, if provided, only to selected active goals
+    if (income.goalAllocations && income.goalAllocations.length > 0) {
+      const { goals } = get();
+      for (const alloc of income.goalAllocations) {
+        const goal = goals.find(g => g.id === alloc.goalId);
+        if (!goal) continue;
+        if (goal.type !== 'save') continue;
+        if (goal.currentAmount >= goal.targetAmount) continue; // skip completed
+
+        const nextAmount = Math.min(goal.targetAmount, (goal.currentAmount || 0) + (alloc.amount || 0));
+        await db.updateGoal(goal.id, nextAmount);
         set(state => ({
-          goals: state.goals.map(g => g.id === goal.id ? { ...g, currentAmount: currentSavings } : g),
+          goals: state.goals.map(g => g.id === goal.id ? { ...g, currentAmount: nextAmount } : g),
         }));
       }
     }

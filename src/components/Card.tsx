@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
-import { theme, spacing, shadows } from '../theme';
+import { spacing, shadows } from '../theme';
+import { useTheme } from 'react-native-paper';
 
 interface CardProps {
   children: React.ReactNode;
@@ -15,11 +16,12 @@ export const Card: React.FC<CardProps> = ({
   onPress,
   variant = 'elevated' 
 }) => {
+  const theme = useTheme();
   const cardStyle = [
-    styles.card,
+    styles(theme).card,
     variant === 'elevated' && shadows.md,
-    variant === 'outlined' && styles.outlined,
-    variant === 'flat' && styles.flat,
+    variant === 'outlined' && styles(theme).outlined,
+    variant === 'flat' && styles(theme).flat,
     style,
   ];
 
@@ -38,17 +40,18 @@ export const Card: React.FC<CardProps> = ({
   return <View style={cardStyle}>{children}</View>;
 };
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.roundness,
-    padding: spacing.md,
-  },
-  outlined: {
-    borderWidth: 1,
-    borderColor: theme.colors.outline,
-  },
-  flat: {
-    backgroundColor: 'transparent',
-  },
-});
+const styles = (theme: any) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.roundness,
+      padding: spacing.md,
+    },
+    outlined: {
+      borderWidth: 1,
+      borderColor: theme.colors.outline,
+    },
+    flat: {
+      backgroundColor: 'transparent',
+    },
+  });

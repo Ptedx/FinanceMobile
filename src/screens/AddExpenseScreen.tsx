@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { TextInput, Button, SegmentedButtons, IconButton } from 'react-native-paper';
+import { TextInput, Button, SegmentedButtons, IconButton, useTheme } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card } from '../components/Card';
 import { useFinanceStore } from '../store/financeStore';
-import { theme, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, getCategoryColor } from '../constants';
 import { ExpenseCategory, PaymentMethod } from '../types';
 import { format } from 'date-fns';
@@ -22,6 +22,7 @@ const expenseSchema = z.object({
 type ExpenseFormData = z.infer<typeof expenseSchema>;
 
 export const AddExpenseScreen = ({ navigation }: any) => {
+  const theme = useTheme();
   const { addExpense } = useFinanceStore();
   const [date, setDate] = useState(new Date());
 
@@ -48,6 +49,8 @@ export const AddExpenseScreen = ({ navigation }: any) => {
 
     navigation.goBack();
   };
+
+  const styles = createStyles(theme);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -188,7 +191,7 @@ export const AddExpenseScreen = ({ navigation }: any) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -281,3 +284,4 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
 });
+
