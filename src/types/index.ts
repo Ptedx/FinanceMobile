@@ -13,6 +13,11 @@ export interface Expense {
   createdAt: string;
 }
 
+export interface GoalAllocation {
+  goalId: string;
+  amount: number;
+}
+
 export interface Income {
   id: string;
   category: IncomeCategory;
@@ -20,6 +25,7 @@ export interface Income {
   date: string;
   isRecurring: boolean;
   description?: string;
+  goalAllocations?: GoalAllocation[];
   createdAt: string;
 }
 

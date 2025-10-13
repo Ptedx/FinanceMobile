@@ -2,8 +2,9 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { IconButton } from 'react-native-paper';
-import { theme } from '../theme';
+import { useThemeStore } from '../hooks/useTheme';
 
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { AddExpenseScreen } from '../screens/AddExpenseScreen';
@@ -17,6 +18,8 @@ const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 const TabNavigator = () => {
+  const { theme } = useThemeStore();
+  
   return (
     <Tab.Navigator
       screenOptions={{
@@ -35,7 +38,7 @@ const TabNavigator = () => {
         options={{
           tabBarLabel: 'Início',
           tabBarIcon: ({ color, size }) => (
-            <IconButton icon="home" iconColor={color} size={size} />
+            <Icon name="home" color={color} size={size} />
           ),
         }}
       />
@@ -45,7 +48,7 @@ const TabNavigator = () => {
         options={{
           tabBarLabel: 'Timeline',
           tabBarIcon: ({ color, size }) => (
-            <IconButton icon="history" iconColor={color} size={size} />
+            <Icon name="history" color={color} size={size} />
           ),
         }}
       />
@@ -55,7 +58,7 @@ const TabNavigator = () => {
         options={{
           tabBarLabel: 'Orçamentos',
           tabBarIcon: ({ color, size }) => (
-            <IconButton icon="wallet" iconColor={color} size={size} />
+            <Icon name="wallet" color={color} size={size} />
           ),
         }}
       />
@@ -65,7 +68,7 @@ const TabNavigator = () => {
         options={{
           tabBarLabel: 'Metas',
           tabBarIcon: ({ color, size }) => (
-            <IconButton icon="flag" iconColor={color} size={size} />
+            <Icon name="flag" color={color} size={size} />
           ),
         }}
       />
@@ -74,6 +77,8 @@ const TabNavigator = () => {
 };
 
 export const AppNavigator = () => {
+  const { theme, toggleTheme, isDarkMode } = useThemeStore();
+  
   return (
     <NavigationContainer>
       <Stack.Navigator
@@ -87,7 +92,17 @@ export const AppNavigator = () => {
         <Stack.Screen
           name="Main"
           component={TabNavigator}
-          options={{ headerShown: false }}
+          options={{ 
+            headerShown: true,
+            title: 'Finance App',
+            headerRight: () => (
+              <IconButton
+                icon={isDarkMode ? "weather-sunny" : "weather-night"}
+                onPress={toggleTheme}
+                iconColor={theme.colors.onSurface}
+              />
+            ),
+          }}
         />
         <Stack.Screen
           name="AddExpense"
