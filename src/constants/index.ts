@@ -1,4 +1,4 @@
-import { ExpenseCategory, PaymentMethod } from '../types';
+import { ExpenseCategory, PaymentMethod, IncomeCategory } from '../types';
 
 export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; icon: string }[] = [
   { value: 'food', label: 'Alimentação', icon: 'food' },
@@ -8,6 +8,14 @@ export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; icon: 
   { value: 'shopping', label: 'Compras', icon: 'shopping' },
   { value: 'bills', label: 'Contas', icon: 'file-document' },
   { value: 'education', label: 'Educação', icon: 'school' },
+  { value: 'other', label: 'Outros', icon: 'dots-horizontal' },
+];
+
+export const INCOME_CATEGORIES: { value: IncomeCategory; label: string; icon: string }[] = [
+  { value: 'salary', label: 'Salário', icon: 'cash-multiple' },
+  { value: 'freelance', label: 'Freelance', icon: 'briefcase' },
+  { value: 'investment', label: 'Investimentos', icon: 'chart-line' },
+  { value: 'gift', label: 'Presente', icon: 'gift' },
   { value: 'other', label: 'Outros', icon: 'dots-horizontal' },
 ];
 
@@ -57,6 +65,10 @@ export const getCategoryColor = (category: ExpenseCategory): string => {
 
 export const getCategoryLabel = (category: ExpenseCategory): string => {
   return EXPENSE_CATEGORIES.find(c => c.value === category)?.label || 'Outros';
+};
+
+export const getIncomeCategoryLabel = (category: IncomeCategory): string => {
+  return INCOME_CATEGORIES.find(c => c.value === category)?.label || 'Outros';
 };
 
 export const getPaymentMethodLabel = (method: PaymentMethod): string => {

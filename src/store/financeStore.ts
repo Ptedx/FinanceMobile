@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { Expense, Budget, Goal, Alert, BudgetProgress } from '../types';
+import { Expense, Budget, Goal, Alert, BudgetProgress, Income } from '../types';
 import { db } from '../services/database';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 
 interface FinanceState {
   expenses: Expense[];
+  incomes: Income[];
   budgets: Budget[];
   goals: Goal[];
   alerts: Alert[];
@@ -15,6 +16,10 @@ interface FinanceState {
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>;
   loadExpenses: (startDate?: string, endDate?: string) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
+  
+  addIncome: (income: Omit<Income, 'id' | 'createdAt'>) => Promise<void>;
+  loadIncomes: (startDate?: string, endDate?: string) => Promise<void>;
+  deleteIncome: (id: string) => Promise<void>;
   
   setBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => Promise<void>;
   loadBudgets: (month: string) => Promise<void>;
@@ -30,11 +35,13 @@ interface FinanceState {
   
   getBudgetProgress: () => BudgetProgress[];
   getMonthlyTotal: () => number;
+  getMonthlyIncome: () => number;
   checkBudgetAlerts: () => void;
 }
 
 export const useFinanceStore = create<FinanceState>((set, get) => ({
   expenses: [],
+  incomes: [],
   budgets: [],
   goals: [],
   alerts: [],
@@ -51,6 +58,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       
       await Promise.all([
         get().loadExpenses(startDate, endDate),
+        get().loadIncomes(startDate, endDate),
         get().loadBudgets(currentMonth),
         get().loadGoals(),
         get().loadAlerts(true),
@@ -67,6 +75,20 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     set(state => ({ expenses: [newExpense, ...state.expenses] }));
     
     get().checkBudgetAlerts();
+    
+    const { incomes, expenses, goals } = get();
+    const totalIncome = incomes.reduce((sum, i) => sum + i.value, 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.value, 0);
+    const currentSavings = totalIncome - totalExpenses;
+    
+    for (const goal of goals) {
+      if (goal.type === 'save') {
+        await db.updateGoal(goal.id, currentSavings);
+        set(state => ({
+          goals: state.goals.map(g => g.id === goal.id ? { ...g, currentAmount: currentSavings } : g),
+        }));
+      }
+    }
   },
 
   loadExpenses: async (startDate, endDate) => {
@@ -77,6 +99,35 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   deleteExpense: async (id) => {
     await db.deleteExpense(id);
     set(state => ({ expenses: state.expenses.filter(e => e.id !== id) }));
+  },
+
+  addIncome: async (income) => {
+    const newIncome = await db.addIncome(income);
+    set(state => ({ incomes: [newIncome, ...state.incomes] }));
+    
+    const { incomes, expenses, goals } = get();
+    const totalIncome = incomes.reduce((sum, i) => sum + i.value, 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.value, 0);
+    const currentSavings = totalIncome - totalExpenses;
+    
+    for (const goal of goals) {
+      if (goal.type === 'save') {
+        await db.updateGoal(goal.id, currentSavings);
+        set(state => ({
+          goals: state.goals.map(g => g.id === goal.id ? { ...g, currentAmount: currentSavings } : g),
+        }));
+      }
+    }
+  },
+
+  loadIncomes: async (startDate, endDate) => {
+    const incomes = await db.getIncomes(startDate, endDate);
+    set({ incomes });
+  },
+
+  deleteIncome: async (id) => {
+    await db.deleteIncome(id);
+    set(state => ({ incomes: state.incomes.filter(i => i.id !== id) }));
   },
 
   setBudget: async (budget) => {
@@ -158,6 +209,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   getMonthlyTotal: () => {
     const { expenses } = get();
     return expenses.reduce((sum, e) => sum + e.value, 0);
+  },
+
+  getMonthlyIncome: () => {
+    const { incomes } = get();
+    return incomes.reduce((sum, i) => sum + i.value, 0);
   },
 
   checkBudgetAlerts: () => {

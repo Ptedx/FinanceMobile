@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { Expense, Budget, Goal, Alert } from '../types';
+import { Expense, Budget, Goal, Alert, Income } from '../types';
 
 class DatabaseService {
   private db: SQLite.SQLiteDatabase | null = null;
@@ -25,6 +25,16 @@ class DatabaseService {
         value REAL NOT NULL,
         date TEXT NOT NULL,
         paymentMethod TEXT NOT NULL,
+        isRecurring INTEGER NOT NULL,
+        description TEXT,
+        createdAt TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS incomes (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        value REAL NOT NULL,
+        date TEXT NOT NULL,
         isRecurring INTEGER NOT NULL,
         description TEXT,
         createdAt TEXT NOT NULL
@@ -60,6 +70,7 @@ class DatabaseService {
 
       CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
       CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);
+      CREATE INDEX IF NOT EXISTS idx_incomes_date ON incomes(date);
       CREATE INDEX IF NOT EXISTS idx_budgets_month ON budgets(month);
     `);
   }
@@ -104,6 +115,48 @@ class DatabaseService {
   async deleteExpense(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
     await this.db.runAsync('DELETE FROM expenses WHERE id = ?', [id]);
+  }
+
+  async addIncome(income: Omit<Income, 'id' | 'createdAt'>): Promise<Income> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const id = `inc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const createdAt = new Date().toISOString();
+    
+    const newIncome: Income = { ...income, id, createdAt };
+
+    await this.db.runAsync(
+      'INSERT INTO incomes (id, category, value, date, isRecurring, description, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, income.category, income.value, income.date, income.isRecurring ? 1 : 0, income.description || null, createdAt]
+    );
+
+    return newIncome;
+  }
+
+  async getIncomes(startDate?: string, endDate?: string): Promise<Income[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let query = 'SELECT * FROM incomes';
+    const params: any[] = [];
+
+    if (startDate && endDate) {
+      query += ' WHERE date >= ? AND date <= ?';
+      params.push(startDate, endDate);
+    }
+
+    query += ' ORDER BY date DESC';
+
+    const result = await this.db.getAllAsync<any>(query, params);
+    
+    return result.map(row => ({
+      ...row,
+      isRecurring: row.isRecurring === 1,
+    }));
+  }
+
+  async deleteIncome(id: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+    await this.db.runAsync('DELETE FROM incomes WHERE id = ?', [id]);
   }
 
   async setBudget(budget: Omit<Budget, 'id' | 'createdAt'>): Promise<Budget> {

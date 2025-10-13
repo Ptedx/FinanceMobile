@@ -4,8 +4,8 @@
 
 App mobile React Native/Expo de gestão financeira inteligente que permite cadastrar gastos, definir orçamentos por categoria, criar metas financeiras e visualizar projeções e insights sobre seus gastos.
 
-**Status Atual**: MVP completo e funcional ✅  
-**Última Atualização**: 12 de Outubro de 2025
+**Status Atual**: MVP completo e funcional + Sistema de Receitas ✅  
+**Última Atualização**: 13 de Outubro de 2025
 
 ---
 
@@ -34,7 +34,7 @@ App mobile React Native/Expo de gestão financeira inteligente que permite cadas
 ### ✅ 1. Dashboard Financeiro (`DashboardScreen.tsx`)
 - **Resumo Mensal**: Total gasto no mês atual com formatação monetária
 - **Projeção Inteligente**: Cálculo de projeção de gastos baseado em histórico
-- **Saldo Disponível**: Calcula quanto ainda pode gastar no mês
+- **Saldo Disponível**: Calcula saldo real baseado em receitas - gastos
 - **Gráfico Animado**: AnimatedBarChart com barras horizontais por categoria
   - Animações com Reanimated (delay, spring)
   - Cores específicas por categoria
@@ -44,9 +44,11 @@ App mobile React Native/Expo de gestão financeira inteligente que permite cadas
   - Limite ultrapassado
   - Navegação para tela de Alertas
 - **Progresso de Orçamentos**: Cards com barras de progresso verde/amarelo/vermelho
-- **FAB**: Botão flutuante para adicionar novo gasto
+- **FAB com BottomSheet**: Botão flutuante que abre modal com duas opções:
+  - Adicionar Gasto
+  - Adicionar Receita
 
-**Técnicas**: ScrollView, useFinanceEngine hook, formatação BRL, navegação
+**Técnicas**: ScrollView, useFinanceEngine hook, formatação BRL, navegação, Modal sheets
 
 ### ✅ 2. Cadastro de Gastos (`AddExpenseScreen.tsx`)
 - **Formulário Completo**: React Hook Form + Zod validation
@@ -67,6 +69,25 @@ App mobile React Native/Expo de gestão financeira inteligente que permite cadas
 
 **Técnicas**: React Hook Form, Zod resolver, controlled components
 
+### ✅ 2.5. Cadastro de Receitas (`AddIncomeScreen.tsx`)
+- **Formulário Completo**: React Hook Form + Zod validation
+- **Campos**:
+  - Descrição (string, opcional)
+  - Valor (number, obrigatório, > 0)
+  - Categoria (salário, freelance, investimentos, presente, outros)
+  - Data (DateTimePicker)
+  - Recorrente (toggle switch)
+- **Validação**: Schema Zod com mensagens de erro em português
+- **UI/UX**:
+  - Chips coloridos (verde) para categorias
+  - Teclado numérico para valor
+  - Feedback visual de validação
+  - Botão verde de submissão
+- **Integração**: Salva no SQLite via financeStore
+- **Automação**: Atualiza automaticamente progresso de metas de economia
+
+**Técnicas**: React Hook Form, Zod resolver, controlled components
+
 ### ✅ 3. Orçamentos Mensais (`BudgetsScreen.tsx`)
 - **Lista de Orçamentos**: Por categoria com limite definido
 - **Progress Bar Animada**: ProgressBar component customizado
@@ -84,17 +105,18 @@ App mobile React Native/Expo de gestão financeira inteligente que permite cadas
 
 ### ✅ 4. Metas Financeiras (`GoalsScreen.tsx`)
 - **Tipos de Meta**:
-  - Economia (savings): poupar X reais
+  - Economia (savings): poupar X reais - **AGORA INTEGRADO COM RECEITAS!**
   - Limite de gastos (spending_limit): não gastar mais que X
 - **Recursos**:
   - Progress bar circular/linear animada
   - Cálculo de progresso atual vs meta
-  - ETA (tempo estimado) para alcançar meta baseado em média
+  - ETA (tempo estimado) para alcançar meta baseado em receitas - gastos
   - Status visual (em progresso, alcançada, não alcançada)
+  - **Novo**: Atualização automática do progresso quando receitas são adicionadas
 - **Formulário**: Criar nova meta com título, valor, tipo e deadline
-- **Integração**: Avaliação em tempo real contra gastos
+- **Integração**: Avaliação em tempo real contra gastos E receitas
 
-**Técnicas**: Progress calculation, date math, goal tracking
+**Técnicas**: Progress calculation, date math, goal tracking, income-based savings calculation
 
 ### ✅ 5. Timeline de Gastos (`TimelineScreen.tsx`)
 - **Lista Cronológica**: FlatList otimizada de todos os gastos
@@ -153,14 +175,27 @@ App mobile React Native/Expo de gestão financeira inteligente que permite cadas
 **expenses**
 ```sql
 CREATE TABLE expenses (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  description TEXT NOT NULL,
-  amount REAL NOT NULL,
+  id TEXT PRIMARY KEY,
+  description TEXT,
+  value REAL NOT NULL,
   category TEXT NOT NULL,
-  payment_method TEXT NOT NULL,
+  paymentMethod TEXT NOT NULL,
   date TEXT NOT NULL,
-  is_recurring INTEGER DEFAULT 0,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  isRecurring INTEGER NOT NULL,
+  createdAt TEXT NOT NULL
+);
+```
+
+**incomes**
+```sql
+CREATE TABLE incomes (
+  id TEXT PRIMARY KEY,
+  description TEXT,
+  value REAL NOT NULL,
+  category TEXT NOT NULL,
+  date TEXT NOT NULL,
+  isRecurring INTEGER NOT NULL,
+  createdAt TEXT NOT NULL
 );
 ```
 
@@ -202,8 +237,9 @@ CREATE TABLE alerts (
 ```
 
 #### Índices
-- `idx_expenses_date` - Otimiza queries por data
+- `idx_expenses_date` - Otimiza queries por data de gastos
 - `idx_expenses_category` - Otimiza queries por categoria
+- `idx_incomes_date` - Otimiza queries por data de receitas
 - `idx_budgets_month` - Otimiza queries por mês
 
 #### Serviço de Banco (`DatabaseService`)
@@ -218,6 +254,7 @@ CREATE TABLE alerts (
 interface FinanceStore {
   // Estado
   expenses: Expense[];
+  incomes: Income[];  // NOVO!
   budgets: Budget[];
   goals: Goal[];
   alerts: Alert[];
@@ -226,12 +263,15 @@ interface FinanceStore {
   loadData: () => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
   deleteExpense: (id: number) => Promise<void>;
+  addIncome: (income: Omit<Income, 'id'>) => Promise<void>;  // NOVO!
+  deleteIncome: (id: number) => Promise<void>;  // NOVO!
   addBudget: (budget: Omit<Budget, 'id'>) => Promise<void>;
   addGoal: (goal: Omit<Goal, 'id'>) => Promise<void>;
   markAlertAsRead: (id: number) => Promise<void>;
   
   // Alertas automáticos
   checkBudgetAlerts: () => Promise<void>;
+  getMonthlyIncome: () => number;  // NOVO!
 }
 ```
 
@@ -239,6 +279,7 @@ interface FinanceStore {
 - `checkBudgetAlerts()` verifica orçamentos e cria alertas em 80% e 100%
 - Chamado após cada adição de gasto
 - Evita alertas duplicados
+- **NOVO**: `addIncome()` e `addExpense()` atualizam automaticamente metas de economia
 
 ### Hook de Cálculos (`hooks/useFinanceEngine.ts`)
 
@@ -265,7 +306,9 @@ interface SpendingInsights {
 - `getDashboardData()` - Calcula totais e progresso de orçamentos
 - `getSpendingInsights()` - Analisa padrões de gastos
 - `getMonthlyProjection()` - Projeta gastos baseado em histórico
+- `calculateGoalETA()` - **ATUALIZADO**: Calcula ETA baseado em (receitas - gastos)
 - Usa mês atual como escopo padrão
+- **NOVO**: Saldo disponível calculado como receitas - gastos
 
 ---
 
@@ -301,6 +344,14 @@ CATEGORIES = {
   other: '#6B7280',       // Cinza
 }
 
+INCOME_CATEGORIES = {
+  salary: { label: 'Salário', icon: 'cash-multiple', color: '#10B981' },
+  freelance: { label: 'Freelance', icon: 'briefcase', color: '#10B981' },
+  investment: { label: 'Investimentos', icon: 'chart-line', color: '#10B981' },
+  gift: { label: 'Presente', icon: 'gift', color: '#10B981' },
+  other: { label: 'Outros', icon: 'dots-horizontal', color: '#10B981' },
+}
+
 PAYMENT_METHODS = ['money', 'credit', 'debit', 'pix'];
 ```
 
@@ -333,7 +384,8 @@ PAYMENT_METHODS = ['money', 'credit', 'debit', 'pix'];
     │   ├── AlertBanner.tsx    # Banner de alerta com ícone e ação
     │   ├── AnimatedBarChart.tsx # Gráfico de barras horizontais animado
     │   ├── Card.tsx           # Card container com sombra
-    │   └── ProgressBar.tsx    # Barra de progresso animada (cores dinâmicas)
+    │   ├── ProgressBar.tsx    # Barra de progresso animada (cores dinâmicas)
+    │   └── TransactionTypeSheet.tsx  # Bottom sheet para escolher tipo de transação (NOVO!)
     │
     ├── constants/
     │   └── index.ts           # Categorias, cores, métodos de pagamento
@@ -346,6 +398,7 @@ PAYMENT_METHODS = ['money', 'credit', 'debit', 'pix'];
     │
     ├── screens/
     │   ├── AddExpenseScreen.tsx    # Formulário de novo gasto
+    │   ├── AddIncomeScreen.tsx     # Formulário de nova receita (NOVO!)
     │   ├── AlertsScreen.tsx        # Lista de alertas
     │   ├── BudgetsScreen.tsx       # Orçamentos mensais
     │   ├── DashboardScreen.tsx     # Dashboard principal
@@ -416,6 +469,7 @@ npm start -- --clear
 - [x] Gráficos animados (barras horizontais)
 - [x] Persistência local com SQLite
 - [x] Dados de demonstração
+- [x] Sistema de receitas integrado (NOVO!)
 
 ### Componentes UI
 - [x] Card com sombras
@@ -424,6 +478,7 @@ npm start -- --clear
 - [x] AnimatedBarChart com Reanimated
 - [x] Formulários validados com Zod
 - [x] FAB para ações principais
+- [x] TransactionTypeSheet - Bottom sheet de seleção (NOVO!)
 
 ### Arquitetura
 - [x] Estado global com Zustand

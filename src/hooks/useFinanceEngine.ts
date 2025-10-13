@@ -4,14 +4,15 @@ import { startOfMonth, endOfMonth, addMonths, differenceInDays } from 'date-fns'
 import { DashboardData, Goal } from '../types';
 
 export const useFinanceEngine = () => {
-  const { expenses, budgets, goals, getBudgetProgress, getMonthlyTotal } = useFinanceStore();
+  const { expenses, incomes, budgets, goals, getBudgetProgress, getMonthlyTotal, getMonthlyIncome } = useFinanceStore();
 
   const dashboardData: DashboardData = useMemo(() => {
     const monthlyTotal = getMonthlyTotal();
+    const monthlyIncome = getMonthlyIncome();
     const budgetProgress = getBudgetProgress();
     
     const totalBudget = budgets.reduce((sum, b) => sum + b.limitAmount, 0);
-    const availableBalance = totalBudget - monthlyTotal;
+    const availableBalance = monthlyIncome - monthlyTotal;
     
     const avgDailySpending = expenses.length > 0 
       ? monthlyTotal / new Date().getDate() 
@@ -35,7 +36,7 @@ export const useFinanceEngine = () => {
       projection,
       availableBalance,
     };
-  }, [expenses, budgets, goals]);
+  }, [expenses, incomes, budgets, goals]);
 
   const calculateGoalETA = (goal: Goal): string => {
     if (goal.type === 'spend_limit') {
@@ -45,12 +46,15 @@ export const useFinanceEngine = () => {
     const remaining = goal.targetAmount - goal.currentAmount;
     if (remaining <= 0) return 'Concluída!';
 
+    const monthlyIncome = getMonthlyIncome();
     const monthlyExpenses = getMonthlyTotal();
-    const avgMonthlySavings = monthlyExpenses > 0 ? monthlyExpenses * 0.1 : 100;
+    const avgMonthlySavings = monthlyIncome - monthlyExpenses;
+
+    if (avgMonthlySavings <= 0) {
+      return 'Impossível (gastos > receitas)';
+    }
 
     const monthsNeeded = Math.ceil(remaining / avgMonthlySavings);
-    
-    const estimatedDate = addMonths(new Date(), monthsNeeded);
     
     return `~${monthsNeeded} ${monthsNeeded === 1 ? 'mês' : 'meses'}`;
   };

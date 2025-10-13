@@ -1,5 +1,6 @@
 export type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix';
 export type ExpenseCategory = 'food' | 'transport' | 'health' | 'entertainment' | 'shopping' | 'bills' | 'education' | 'other';
+export type IncomeCategory = 'salary' | 'freelance' | 'investment' | 'gift' | 'other';
 
 export interface Expense {
   id: string;
@@ -7,6 +8,16 @@ export interface Expense {
   value: number;
   date: string;
   paymentMethod: PaymentMethod;
+  isRecurring: boolean;
+  description?: string;
+  createdAt: string;
+}
+
+export interface Income {
+  id: string;
+  category: IncomeCategory;
+  value: number;
+  date: string;
   isRecurring: boolean;
   description?: string;
   createdAt: string;

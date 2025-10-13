@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { IconButton, FAB } from 'react-native-paper';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { AlertBanner } from '../components/AlertBanner';
 import { AnimatedBarChart } from '../components/AnimatedBarChart';
+import { TransactionTypeSheet } from '../components/TransactionTypeSheet';
 import { useFinanceStore } from '../store/financeStore';
 import { useFinanceEngine } from '../hooks/useFinanceEngine';
 import { theme, spacing, typography } from '../theme';
@@ -16,6 +17,7 @@ export const DashboardScreen = ({ navigation }: any) => {
   const { alerts, markAlertAsRead } = useFinanceStore();
   const { dashboardData, getSpendingInsights } = useFinanceEngine();
   const insights = getSpendingInsights();
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   const categoryData = Object.entries(insights.categoryBreakdown).map(([category, amount]) => ({
     category: category as any,
@@ -108,8 +110,21 @@ export const DashboardScreen = ({ navigation }: any) => {
       <FAB
         icon="plus"
         style={styles.fab}
-        onPress={() => navigation.navigate('AddExpense')}
+        onPress={() => setSheetVisible(true)}
         color={theme.colors.surface}
+      />
+
+      <TransactionTypeSheet
+        visible={sheetVisible}
+        onClose={() => setSheetVisible(false)}
+        onSelectExpense={() => {
+          setSheetVisible(false);
+          navigation.navigate('AddExpense');
+        }}
+        onSelectIncome={() => {
+          setSheetVisible(false);
+          navigation.navigate('AddIncome');
+        }}
       />
     </View>
   );

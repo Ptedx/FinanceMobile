@@ -7,6 +7,7 @@ import { theme } from '../theme';
 
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { AddExpenseScreen } from '../screens/AddExpenseScreen';
+import { AddIncomeScreen } from '../screens/AddIncomeScreen';
 import { BudgetsScreen } from '../screens/BudgetsScreen';
 import { GoalsScreen } from '../screens/GoalsScreen';
 import { TimelineScreen } from '../screens/TimelineScreen';
@@ -93,6 +94,14 @@ export const AppNavigator = () => {
           component={AddExpenseScreen}
           options={{
             title: 'Adicionar Gasto',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="AddIncome"
+          component={AddIncomeScreen}
+          options={{
+            title: 'Adicionar Receita',
             presentation: 'modal',
           }}
         />
