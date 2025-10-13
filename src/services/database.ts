@@ -2,20 +2,37 @@ import { Platform } from 'react-native';
 import { IDatabaseService } from './IDatabaseService';
 import WebDatabaseService from './WebDatabaseService';
 
-let SQLiteDatabaseService: any;
+let databaseInstance: IDatabaseService | null = null;
 
-if (Platform.OS !== 'web') {
-  SQLiteDatabaseService = require('./SQLiteDatabaseService').default;
+// Synchronous initialization for web, async for native
+if (Platform.OS === 'web') {
+  databaseInstance = new WebDatabaseService();
+  console.log('Using Web Database Service');
 }
 
-function createDatabaseService(): IDatabaseService {
-  if (Platform.OS === 'web') {
-    console.log('Using Web Database Service');
-    return new WebDatabaseService();
-  } else {
-    console.log('Using SQLite Database Service');
-    return new SQLiteDatabaseService();
+export function getDatabaseSync(): IDatabaseService {
+  if (!databaseInstance) {
+    if (Platform.OS !== 'web') {
+      // For native, we need to use dynamic import
+      const SQLiteDatabaseService = require('./SQLiteDatabaseService').default;
+      databaseInstance = new SQLiteDatabaseService();
+      console.log('Using SQLite Database Service');
+    } else {
+      throw new Error('Database should be initialized for web');
+    }
   }
+  return databaseInstance;
 }
 
-export const db = createDatabaseService();
+export const db = new Proxy({} as IDatabaseService, {
+  get: (_target, prop) => {
+    const database = getDatabaseSync();
+    const value = (database as any)[prop];
+    if (typeof value === 'function') {
+      return value.bind(database);
+    }
+    return value;
+  }
+});
+
+export { IDatabaseService };
