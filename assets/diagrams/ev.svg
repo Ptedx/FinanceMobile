@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="620" viewBox="0 0 1000 620">
+  <defs>
+    <style>
+      .box{fill:#ffffff;stroke:#1f2937;stroke-width:1.5}
+      .title{font:700 14px ui-sans-serif,system-ui,sans-serif;fill:#111827}
+      .field{font:400 12px ui-sans-serif,system-ui,sans-serif;fill:#374151}
+      .bg{fill:#f9fafb}
+      .edge{stroke:#6b7280;stroke-width:1.5;fill:none;marker-end:url(#arrow)}
+      .note{font:400 11px ui-sans-serif,system-ui,sans-serif;fill:#6b7280}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L6,3 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="620"/>
+
+  <!-- EXPENSE -->
+  <g transform="translate(40,40)">
+    <rect class="box" width="260" height="190" rx="8"/>
+    <text class="title" x="12" y="24">EXPENSE</text>
+    <text class="field" x="12" y="48">id: string (PK)</text>
+    <text class="field" x="12" y="68">category: ExpenseCategory</text>
+    <text class="field" x="12" y="88">value: number</text>
+    <text class="field" x="12" y="108">date: YYYY-MM-DD</text>
+    <text class="field" x="12" y="128">paymentMethod: PaymentMethod</text>
+    <text class="field" x="12" y="148">isRecurring: boolean</text>
+    <text class="field" x="12" y="168">description?: string, createdAt</text>
+  </g>
+
+  <!-- INCOME -->
+  <g transform="translate(360,40)">
+    <rect class="box" width="260" height="170" rx="8"/>
+    <text class="title" x="12" y="24">INCOME</text>
+    <text class="field" x="12" y="48">id: string (PK)</text>
+    <text class="field" x="12" y="68">category: IncomeCategory</text>
+    <text class="field" x="12" y="88">value: number</text>
+    <text class="field" x="12" y="108">date: YYYY-MM-DD</text>
+    <text class="field" x="12" y="128">isRecurring: boolean</text>
+    <text class="field" x="12" y="148">description?: string, createdAt</text>
+  </g>
+
+  <!-- BUDGET -->
+  <g transform="translate(700,40)">
+    <rect class="box" width="260" height="160" rx="8"/>
+    <text class="title" x="12" y="24">BUDGET</text>
+    <text class="field" x="12" y="48">id: string (PK)</text>
+    <text class="field" x="12" y="68">category: ExpenseCategory</text>
+    <text class="field" x="12" y="88">limitAmount: number</text>
+    <text class="field" x="12" y="108">month: YYYY-MM, createdAt</text>
+    <text class="note" x="12" y="130">UNIQUE(category, month)</text>
+  </g>
+
+  <!-- GOAL -->
+  <g transform="translate(220,330)">
+    <rect class="box" width="300" height="180" rx="8"/>
+    <text class="title" x="12" y="24">GOAL</text>
+    <text class="field" x="12" y="48">id: string (PK), title</text>
+    <text class="field" x="12" y="68">targetAmount: number</text>
+    <text class="field" x="12" y="88">currentAmount: number</text>
+    <text class="field" x="12" y="108">targetDate: date</text>
+    <text class="field" x="12" y="128">type: save | spend_limit</text>
+    <text class="field" x="12" y="148">category?: ExpenseCategory, createdAt</text>
+  </g>
+
+  <!-- ALERT -->
+  <g transform="translate(600,330)">
+    <rect class="box" width="320" height="170" rx="8"/>
+    <text class="title" x="12" y="24">ALERT</text>
+    <text class="field" x="12" y="48">id: string (PK)</text>
+    <text class="field" x="12" y="68">type: budget_warning | budget_exceeded | goal_progress | unusual_spending</text>
+    <text class="field" x="12" y="108">message, category?: ExpenseCategory</text>
+    <text class="field" x="12" y="128">isRead: boolean, createdAt</text>
+  </g>
+
+  <!-- Edges (conceituais) -->
+  <path class="edge" d="M300 135 C 440 30, 600 30, 700 120"/>
+  <text class="note" x="450" y="40">Expense contribui p/ Budget (categoria+mês)</text>
+
+  <path class="edge" d="M490 210 C 460 260, 420 300, 370 330"/>
+  <text class="note" x="390" y="270">Income aloca p/ Goal (aplicação)</text>
+
+  <path class="edge" d="M830 200 L 760 330"/>
+  <text class="note" x="770" y="250">Alert de orçamento</text>
+
+  <path class="edge" d="M520 420 L 600 420"/>
+  <text class="note" x="540" y="405">Alert de meta (opcional)</text>
+</svg>
+

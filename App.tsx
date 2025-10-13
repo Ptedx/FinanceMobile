@@ -6,6 +6,7 @@ import { useFinanceStore } from './src/store/financeStore';
 import { seedDemoData } from './src/utils/seedData';
 import { useThemeStore } from './src/hooks/useTheme';
 import { StatusBar } from 'expo-status-bar';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function App() {
   const initialize = useFinanceStore(state => state.initialize);
@@ -21,7 +22,10 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <PaperProvider theme={theme}>
+      <PaperProvider
+        theme={theme}
+        settings={{ icon: (props) => <MaterialCommunityIcons {...props} /> }}
+      >
         <StatusBar style={isDarkMode ? "light" : "dark"} />
         <AppNavigator />
       </PaperProvider>

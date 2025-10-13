@@ -2,7 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { IconButton } from 'react-native-paper';
 import { useThemeStore } from '../hooks/useTheme';
 
@@ -131,3 +131,5 @@ export const AppNavigator = () => {
     </NavigationContainer>
   );
 };
+
+

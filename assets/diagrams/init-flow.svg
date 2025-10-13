@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360">
+  <defs>
+    <style>
+      .bg{fill:#f9fafb}
+      .box{fill:#ffffff;stroke:#1f2937;stroke-width:1.5;rx:8}
+      .title{font:700 14px ui-sans-serif,system-ui,sans-serif;fill:#111827}
+      .edge{stroke:#6b7280;stroke-width:1.5;marker-end:url(#a)}
+    </style>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L6,3 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="360"/>
+  <g transform="translate(40,40)">
+    <rect class="box" width="120" height="48"/>
+    <text class="title" x="12" y="30">App start</text>
+  </g>
+  <g transform="translate(220,40)">
+    <rect class="box" width="140" height="48"/>
+    <text class="title" x="12" y="30">db.init()</text>
+  </g>
+  <g transform="translate(420,40)">
+    <rect class="box" width="160" height="48"/>
+    <text class="title" x="12" y="30">loadExpenses()</text>
+  </g>
+  <g transform="translate(420,120)">
+    <rect class="box" width="160" height="48"/>
+    <text class="title" x="12" y="30">loadIncomes()</text>
+  </g>
+  <g transform="translate(420,200)">
+    <rect class="box" width="160" height="48"/>
+    <text class="title" x="12" y="30">loadBudgets()</text>
+  </g>
+  <g transform="translate(610,40)">
+    <rect class="box" width="140" height="48"/>
+    <text class="title" x="12" y="30">loadGoals()</text>
+  </g>
+  <g transform="translate(610,120)">
+    <rect class="box" width="160" height="48"/>
+    <text class="title" x="12" y="30">loadAlerts(true)</text>
+  </g>
+  <g transform="translate(800,120)">
+    <rect class="box" width="120" height="48"/>
+    <text class="title" x="12" y="30">UI pronta</text>
+  </g>
+
+  <line class="edge" x1="160" y1="64" x2="220" y2="64"/>
+  <line class="edge" x1="360" y1="64" x2="420" y2="64"/>
+  <line class="edge" x1="360" y1="64" x2="420" y2="144"/>
+  <line class="edge" x1="360" y1="64" x2="420" y2="224"/>
+  <line class="edge" x1="580" y1="64" x2="610" y2="64"/>
+  <line class="edge" x1="580" y1="64" x2="610" y2="144"/>
+  <line class="edge" x1="770" y1="144" x2="800" y2="144"/>
+</svg>
+

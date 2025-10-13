@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="720" viewBox="0 0 360 720">
+  <defs>
+    <style>
+      .bg{fill:#F9FAFB}
+      .surface{fill:#FFFFFF}
+      .muted{fill:#6B7280;font:400 10px sans-serif}
+      .text{fill:#111827;font:500 12px sans-serif}
+      .title{fill:#111827;font:700 18px sans-serif}
+      .outline{stroke:#E5E7EB;stroke-width:1;fill:none}
+      .primary{fill:#6366F1}
+      .error{fill:#EF4444}
+      .success{fill:#10B981}
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="360" height="720"/>
+  <!-- Header -->
+  <rect class="surface" x="0" y="0" width="360" height="72"/>
+  <text class="title" x="16" y="44">Timeline</text>
+  <!-- Filters -->
+  <rect class="surface" x="16" y="88" width="328" height="80" rx="12"/>
+  <rect x="28" y="104" width="86" height="28" rx="14" fill="#EDE9FE"/>
+  <text class="text" x="46" y="123">Todos</text>
+  <rect x="124" y="104" width="86" height="28" rx="14" class="surface"/>
+  <text class="muted" x="142" y="123">Gastos</text>
+  <rect x="220" y="104" width="86" height="28" rx="14" class="surface"/>
+  <text class="muted" x="236" y="123">Receitas</text>
+  <rect x="28" y="138" width="300" height="24" rx="6" class="surface"/>
+  <text class="text" x="36" y="154">Este mês</text>
+  <!-- Items -->
+  <g transform="translate(16,184)">
+    <rect class="surface" width="328" height="96" rx="12"/>
+    <g transform="translate(12,14)">
+      <circle cx="8" cy="10" r="6" fill="#3B82F6"/>
+      <text class="text" x="24" y="14">Transporte</text>
+      <text class="text" x="260" y="14" fill="#EF4444">- R$ 5,00</text>
+      <text class="muted" x="24" y="32">11 de Outubro</text>
+      <line class="outline" x1="0" y1="44" x2="304" y2="44"/>
+      <text class="muted" x="0" y="62">Crédito</text>
+    </g>
+  </g>
+  <g transform="translate(16,288)">
+    <rect class="surface" width="328" height="96" rx="12"/>
+    <g transform="translate(12,14)">
+      <circle cx="8" cy="10" r="6" fill="#F59E0B"/>
+      <text class="text" x="24" y="14">Alimentação</text>
+      <text class="text" x="238" y="14" fill="#EF4444">- R$ 440,00</text>
+      <text class="muted" x="24" y="32">11 de Outubro</text>
+      <line class="outline" x1="0" y1="44" x2="304" y2="44"/>
+      <text class="muted" x="0" y="62">Crédito</text>
+    </g>
+  </g>
+  <g transform="translate(16,392)">
+    <rect class="surface" width="328" height="96" rx="12"/>
+    <g transform="translate(12,14)">
+      <circle cx="8" cy="10" r="6" fill="#10B981"/>
+      <text class="text" x="24" y="14">Investimentos</text>
+      <text class="text" x="238" y="14" fill="#10B981">+ R$ 300,00</text>
+      <text class="muted" x="24" y="32">11 de Outubro</text>
+    </g>
+  </g>
+</svg>
+

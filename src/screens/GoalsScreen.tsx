@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { TextInput, Button, IconButton, SegmentedButtons } from 'react-native-paper';
+import { TextInput, Button, IconButton, SegmentedButtons, useTheme } from 'react-native-paper';
 import { Card } from '../components/Card';
 import { useFinanceStore } from '../store/financeStore';
 import { useFinanceEngine } from '../hooks/useFinanceEngine';
-import { theme, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
 import { format } from 'date-fns';
 
 export const GoalsScreen = () => {
+  const theme = useTheme();
   const { goals, addGoal, deleteGoal } = useFinanceStore();
   const { calculateGoalETA } = useFinanceEngine();
   const [title, setTitle] = useState('');
@@ -33,9 +34,9 @@ export const GoalsScreen = () => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card style={styles.card}>
-        <Text style={styles.title}>Nova Meta</Text>
+    <ScrollView style={styles(theme).container} contentContainerStyle={styles(theme).content}>
+      <Card style={styles(theme).card}>
+        <Text style={styles(theme).title}>Nova Meta</Text>
         
         <SegmentedButtons
           value={type}
@@ -44,7 +45,7 @@ export const GoalsScreen = () => {
             { value: 'save', label: 'Economizar' },
             { value: 'spend_limit', label: 'Limite de Gastos' },
           ]}
-          style={styles.segmented}
+          style={styles(theme).segmented}
         />
 
         <TextInput
@@ -52,7 +53,7 @@ export const GoalsScreen = () => {
           label="Título da Meta"
           value={title}
           onChangeText={setTitle}
-          style={styles.input}
+          style={styles(theme).input}
         />
 
         <TextInput
@@ -61,7 +62,7 @@ export const GoalsScreen = () => {
           value={targetAmount}
           onChangeText={setTargetAmount}
           keyboardType="decimal-pad"
-          style={styles.input}
+          style={styles(theme).input}
         />
 
         <Button mode="contained" onPress={handleAddGoal}>
@@ -70,18 +71,18 @@ export const GoalsScreen = () => {
       </Card>
 
       {goals.length > 0 && (
-        <Card style={styles.card}>
-          <Text style={styles.title}>Minhas Metas</Text>
+        <Card style={styles(theme).card}>
+          <Text style={styles(theme).title}>Minhas Metas</Text>
           {goals.map(goal => {
             const progress = (goal.currentAmount / goal.targetAmount) * 100;
             const eta = calculateGoalETA(goal);
             
             return (
-              <View key={goal.id} style={styles.goalItem}>
-                <View style={styles.goalHeader}>
-                  <View style={styles.goalInfo}>
-                    <Text style={styles.goalTitle}>{goal.title}</Text>
-                    <Text style={styles.goalSubtitle}>
+              <View key={goal.id} style={styles(theme).goalItem}>
+                <View style={styles(theme).goalHeader}>
+                  <View style={styles(theme).goalInfo}>
+                    <Text style={styles(theme).goalTitle}>{goal.title}</Text>
+                    <Text style={styles(theme).goalSubtitle}>
                       R$ {goal.currentAmount.toFixed(2)} / R$ {goal.targetAmount.toFixed(2)}
                     </Text>
                   </View>
@@ -92,19 +93,19 @@ export const GoalsScreen = () => {
                   />
                 </View>
                 
-                <View style={styles.progressContainer}>
-                  <View style={styles.progressBarBg}>
+                <View style={styles(theme).progressContainer}>
+                  <View style={styles(theme).progressBarBg}>
                     <View
                       style={[
-                        styles.progressBarFill,
+                        styles(theme).progressBarFill,
                         { width: `${Math.min(progress, 100)}%` },
                       ]}
                     />
                   </View>
-                  <Text style={styles.progressText}>{progress.toFixed(0)}%</Text>
+                  <Text style={styles(theme).progressText}>{progress.toFixed(0)}%</Text>
                 </View>
                 
-                <Text style={styles.etaText}>ETA: {eta}</Text>
+                <Text style={styles(theme).etaText}>ETA: {eta}</Text>
               </View>
             );
           })}
@@ -114,7 +115,7 @@ export const GoalsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

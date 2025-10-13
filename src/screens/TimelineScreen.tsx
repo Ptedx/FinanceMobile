@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { IconButton, SegmentedButtons, Menu, Button } from 'react-native-paper';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { Card } from '../components/Card';
 import { useFinanceStore } from '../store/financeStore';
 import { useThemeStore } from '../hooks/useTheme';
@@ -288,6 +288,7 @@ export const TimelineScreen = ({ navigation }: any) => {
         <Menu
           visible={menuVisible}
           onDismiss={() => setMenuVisible(false)}
+          anchorPosition="bottom"
           anchor={
             <TouchableOpacity 
               style={styles.periodButton}
@@ -322,3 +323,4 @@ export const TimelineScreen = ({ navigation }: any) => {
     </View>
   );
 };
+

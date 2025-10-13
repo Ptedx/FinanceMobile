@@ -107,3 +107,7 @@ export const shadows = {
 };
 
 export type AppTheme = typeof lightTheme;
+
+// Back-compat: many components import a named `theme`.
+// Provide a default exported theme (light) so those imports are defined.
+export const theme = lightTheme;

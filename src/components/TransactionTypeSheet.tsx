@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
-import { IconButton } from 'react-native-paper';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { theme, spacing, typography } from '../theme';
+import { IconButton, useTheme } from 'react-native-paper';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { spacing, typography } from '../theme';
 
 interface TransactionTypeSheetProps {
   visible: boolean;
@@ -12,6 +12,8 @@ interface TransactionTypeSheetProps {
 }
 
 export const TransactionTypeSheet = ({ visible, onClose, onSelectExpense, onSelectIncome }: TransactionTypeSheetProps) => {
+  const theme = useTheme();
+  const styles = createStyles(theme);
   return (
     <Modal
       visible={visible}
@@ -59,7 +61,7 @@ export const TransactionTypeSheet = ({ visible, onClose, onSelectExpense, onSele
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

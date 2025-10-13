@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360">
+  <defs>
+    <style>
+      .bg{fill:#f9fafb}
+      .box{fill:#fff;stroke:#1f2937;stroke-width:1.5;rx:8}
+      .title{font:700 14px ui-sans-serif,system-ui,sans-serif;fill:#111827}
+      .edge{stroke:#6b7280;stroke-width:1.5;marker-end:url(#a)}
+    </style>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L6,3 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+  <rect class="bg" width="900" height="360"/>
+  <g transform="translate(40,40)">
+    <rect class="box" width="180" height="48"/>
+    <text class="title" x="12" y="30">Seleciona tipo</text>
+  </g>
+  <g transform="translate(40,120)">
+    <rect class="box" width="200" height="48"/>
+    <text class="title" x="12" y="30">Seleciona período</text>
+  </g>
+  <g transform="translate(280,80)">
+    <rect class="box" width="200" height="48"/>
+    <text class="title" x="12" y="30">getDateRange()</text>
+  </g>
+  <g transform="translate(520,40)">
+    <rect class="box" width="260" height="48"/>
+    <text class="title" x="12" y="30">combina expenses/incomes</text>
+  </g>
+  <g transform="translate(520,120)">
+    <rect class="box" width="220" height="48"/>
+    <text class="title" x="12" y="30">filtra por range</text>
+  </g>
+  <g transform="translate(520,200)">
+    <rect class="box" width="220" height="48"/>
+    <text class="title" x="12" y="30">ordena por data desc</text>
+  </g>
+  <g transform="translate(780,120)">
+    <rect class="box" width="80" height="48"/>
+    <text class="title" x="12" y="30">UI</text>
+  </g>
+  <line class="edge" x1="220" y1="64" x2="280" y2="104"/>
+  <line class="edge" x1="240" y1="144" x2="280" y2="104"/>
+  <line class="edge" x1="480" y1="104" x2="520" y2="64"/>
+  <line class="edge" x1="480" y1="104" x2="520" y2="144"/>
+  <line class="edge" x1="630" y1="168" x2="630" y2="200"/>
+  <line class="edge" x1="740" y1="224" x2="780" y2="144"/>
+</svg>
+

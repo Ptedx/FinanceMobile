@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="720" viewBox="0 0 360 720">
+  <defs>
+    <style>
+      .bg{fill:#F9FAFB}
+      .surface{fill:#FFFFFF}
+      .title{font:700 18px sans-serif;fill:#111827}
+      .text{font:500 12px sans-serif;fill:#111827}
+      .muted{font:400 10px sans-serif;fill:#6B7280}
+      .outline{stroke:#E5E7EB;stroke-width:1;fill:none}
+      .primary{fill:#6366F1}
+      .success{fill:#10B981}
+      .warning{fill:#F59E0B}
+      .error{fill:#EF4444}
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="360" height="720"/>
+  <rect class="surface" x="0" y="0" width="360" height="72"/>
+  <text class="title" x="16" y="44">Orçamentos</text>
+  <!-- Chips de categorias -->
+  <rect class="surface" x="16" y="88" width="328" height="120" rx="12"/>
+  <rect x="28" y="108" width="90" height="28" rx="14" class="surface"/>
+  <text class="muted" x="44" y="126">Alimentação</text>
+  <rect x="128" y="108" width="90" height="28" rx="14" class="surface"/>
+  <text class="muted" x="154" y="126">Transporte</text>
+  <rect x="228" y="108" width="90" height="28" rx="14" class="surface"/>
+  <text class="muted" x="258" y="126">Lazer</text>
+  <rect x="28" y="142" width="200" height="28" rx="14" class="surface"/>
+  <text class="muted" x="44" y="160">Contas</text>
+  <!-- Input de limite -->
+  <rect class="surface" x="16" y="220" width="328" height="70" rx="12"/>
+  <text class="text" x="28" y="242">Limite Mensal (R$)</text>
+  <rect x="28" y="250" width="200" height="26" rx="6" fill="#F3F4F6"/>
+  <!-- Progresso -->
+  <rect class="surface" x="16" y="308" width="328" height="180" rx="12"/>
+  <text class="title" x="28" y="332">Orçamentos Atuais</text>
+  <text class="muted" x="28" y="350">Transporte</text>
+  <rect x="28" y="356" width="260" height="8" rx="4" fill="#E5E7EB"/>
+  <rect x="28" y="356" width="180" height="8" rx="4" class="success"/>
+  <text class="muted" x="28" y="376">Lazer</text>
+  <rect x="28" y="382" width="260" height="8" rx="4" fill="#E5E7EB"/>
+  <rect x="28" y="382" width="210" height="8" rx="4" class="warning"/>
+  <text class="muted" x="28" y="402">Alimentação</text>
+  <rect x="28" y="408" width="260" height="8" rx="4" fill="#E5E7EB"/>
+  <rect x="28" y="408" width="260" height="8" rx="4" class="error"/>
+</svg>
+
