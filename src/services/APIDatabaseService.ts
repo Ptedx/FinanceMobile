@@ -93,11 +93,22 @@ export class APIDatabaseService implements IDatabaseService {
         return fetchWithAuth(`/incomes/${id}`, { method: 'DELETE' });
     }
 
-    async setBudget(budget: Omit<Budget, 'id' | 'createdAt'>): Promise<Budget> {
+    async addBudget(budget: Omit<Budget, 'id' | 'createdAt'>): Promise<Budget> {
         return fetchWithAuth('/budgets', {
             method: 'POST',
             body: JSON.stringify(budget),
         });
+    }
+
+    async updateBudget(id: string, budget: Partial<Budget>): Promise<Budget> {
+        return fetchWithAuth(`/budgets/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(budget),
+        });
+    }
+
+    async deleteBudget(id: string): Promise<void> {
+        return fetchWithAuth(`/budgets/${id}`, { method: 'DELETE' });
     }
 
     async getBudgets(month: string): Promise<Budget[]> {

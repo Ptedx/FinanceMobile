@@ -13,7 +13,9 @@ export interface IDatabaseService {
   updateIncome(id: string, income: Partial<Income>): Promise<Income>;
   deleteIncome(id: string): Promise<void>;
 
-  setBudget(budget: Omit<Budget, 'id' | 'createdAt'>): Promise<Budget>;
+  addBudget(budget: Omit<Budget, 'id' | 'createdAt'>): Promise<Budget>;
+  updateBudget(id: string, budget: Partial<Budget>): Promise<Budget>;
+  deleteBudget(id: string): Promise<void>;
   getBudgets(month: string): Promise<Budget[]>;
 
   addGoal(goal: Omit<Goal, 'id' | 'createdAt'>): Promise<Goal>;

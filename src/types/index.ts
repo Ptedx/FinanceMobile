@@ -34,6 +34,7 @@ export interface Budget {
   category: ExpenseCategory;
   limitAmount: number;
   month: string;
+  isRecurring: boolean;
   createdAt: string;
 }
 

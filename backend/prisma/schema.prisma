@@ -53,6 +53,7 @@ model Budget {
   category    String
   limitAmount Float
   month       String
+  isRecurring Boolean  @default(true)
   createdAt   DateTime @default(now())
   userId      String
   user        User     @relation(fields: [userId], references: [id])

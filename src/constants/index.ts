@@ -40,13 +40,13 @@ export const COLORS = {
     light: '#9CA3AF',
   },
   border: '#E5E7EB',
-  
+
   budget: {
     safe: '#10B981',
     warning: '#F59E0B',
     exceeded: '#EF4444',
   },
-  
+
   categories: {
     food: '#F59E0B',
     transport: '#3B82F6',
@@ -65,6 +65,10 @@ export const getCategoryColor = (category: ExpenseCategory): string => {
 
 export const getCategoryLabel = (category: ExpenseCategory): string => {
   return EXPENSE_CATEGORIES.find(c => c.value === category)?.label || 'Outros';
+};
+
+export const getCategoryIcon = (category: ExpenseCategory): string => {
+  return EXPENSE_CATEGORIES.find(c => c.value === category)?.icon || 'dots-horizontal';
 };
 
 export const getIncomeCategoryLabel = (category: IncomeCategory): string => {

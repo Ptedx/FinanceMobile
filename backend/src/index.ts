@@ -311,41 +311,104 @@ app.delete('/incomes/:id', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 // Budgets
+// Budgets
 app.get('/budgets', authMiddleware, async (req: AuthRequest, res) => {
     const { month } = req.query;
-    const where: any = { userId: req.user!.userId };
+    const userId = req.user!.userId;
+    const where: any = { userId };
     if (month) where.month = month;
 
-    const budgets = await prisma.budget.findMany({ where });
-    console.log(`Fetched budgets for user: ${req.user!.userId}, count: ${budgets.length}`);
+    let budgets = await prisma.budget.findMany({ where });
+
+    // Recurring Budget Logic:
+    // If we are querying a specific month, and no budgets exist,
+    // check the previous month for recurring budgets and copy them over.
+    if (month && budgets.length === 0) {
+        const currentMonthDate = new Date(month as string + '-01'); // Assumes YYYY-MM
+        const previousMonthDate = new Date(currentMonthDate);
+        previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
+        const previousMonthStr = previousMonthDate.toISOString().slice(0, 7); // YYYY-MM
+
+        const previousBudgets = await prisma.budget.findMany({
+            where: { userId, month: previousMonthStr, isRecurring: true }
+        });
+
+        if (previousBudgets.length > 0) {
+            // Copy them to the current month
+            const newBudgets = await Promise.all(previousBudgets.map(b =>
+                prisma.budget.create({
+                    data: {
+                        category: b.category,
+                        limitAmount: b.limitAmount,
+                        month: month as string,
+                        isRecurring: true,
+                        userId
+                    }
+                })
+            ));
+            budgets = newBudgets;
+        }
+    }
+
+    console.log(`Fetched budgets for user: ${userId}, count: ${budgets.length}`);
     res.json(budgets);
 });
 
 app.post('/budgets', authMiddleware, async (req: AuthRequest, res) => {
-    const { category, limitAmount, month } = req.body as BudgetRequest;
+    const { category, limitAmount, month, isRecurring } = req.body as BudgetRequest & { isRecurring?: boolean };
 
-    // Check if budget exists for this category/month
-    const existing = await prisma.budget.findFirst({
-        where: { userId: req.user!.userId, category, month }
-    });
-
-    if (existing) {
-        const updated = await prisma.budget.update({
-            where: { id: existing.id },
-            data: { limitAmount }
+    try {
+        // Check if budget exists for this category/month
+        const existing = await prisma.budget.findFirst({
+            where: { userId: req.user!.userId, category, month }
         });
-        return res.json(updated);
-    }
 
-    const budget = await prisma.budget.create({
-        data: {
-            category,
-            limitAmount,
-            month,
-            userId: req.user!.userId,
-        },
-    });
-    res.json(budget);
+        if (existing) {
+            const updated = await prisma.budget.update({
+                where: { id: existing.id },
+                data: { limitAmount, isRecurring: isRecurring ?? existing.isRecurring }
+            });
+            return res.json(updated);
+        }
+
+        const budget = await prisma.budget.create({
+            data: {
+                category,
+                limitAmount,
+                month,
+                isRecurring: isRecurring ?? true,
+                userId: req.user!.userId,
+            },
+        });
+        res.json(budget);
+    } catch (error) {
+        console.error('Error creating/updating budget:', error);
+        res.status(500).json({ error: 'Failed to save budget' });
+    }
+});
+
+app.put('/budgets/:id', authMiddleware, async (req: AuthRequest, res) => {
+    const { limitAmount, isRecurring } = req.body;
+    try {
+        const budget = await prisma.budget.update({
+            where: { id: req.params.id, userId: req.user!.userId },
+            data: { limitAmount, isRecurring }
+        });
+        res.json(budget);
+    } catch (error) {
+        res.status(500).json({ error: 'Error updating budget' });
+    }
+});
+
+app.delete('/budgets/:id', authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        await prisma.budget.delete({
+            where: { id: req.params.id, userId: req.user!.userId }
+        });
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Error deleting budget' });
+    }
 });
 
 // Goals

@@ -23,7 +23,9 @@ interface FinanceState {
   loadIncomes: (startDate?: string, endDate?: string) => Promise<void>;
   deleteIncome: (id: string) => Promise<void>;
 
-  setBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => Promise<void>;
+  addBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => Promise<void>;
+  updateBudget: (id: string, budget: Partial<Budget>) => Promise<void>;
+  deleteBudget: (id: string) => Promise<void>;
   loadBudgets: (month: string) => Promise<void>;
 
   addGoal: (goal: Omit<Goal, 'id' | 'createdAt'>) => Promise<void>;
@@ -173,12 +175,27 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     set(state => ({ incomes: state.incomes.filter(i => i.id !== id) }));
   },
 
-  setBudget: async (budget) => {
-    const newBudget = await db.setBudget(budget);
+  addBudget: async (budget) => {
+    const newBudget = await db.addBudget(budget);
     set(state => {
+      // Remove existing budget for same category if any (though backend handles this, frontend state should reflect)
       const filtered = state.budgets.filter(b => b.category !== budget.category);
       return { budgets: [...filtered, newBudget] };
     });
+    get().checkBudgetAlerts();
+  },
+
+  updateBudget: async (id, budget) => {
+    const updatedBudget = await db.updateBudget(id, budget);
+    set(state => ({
+      budgets: state.budgets.map(b => b.id === id ? updatedBudget : b)
+    }));
+    get().checkBudgetAlerts();
+  },
+
+  deleteBudget: async (id) => {
+    await db.deleteBudget(id);
+    set(state => ({ budgets: state.budgets.filter(b => b.id !== id) }));
   },
 
   loadBudgets: async (month) => {
