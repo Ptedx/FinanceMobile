@@ -10,33 +10,34 @@ interface FinanceState {
   goals: Goal[];
   alerts: Alert[];
   isLoading: boolean;
-  
+
   initialize: () => Promise<void>;
-  
+
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>;
   loadExpenses: (startDate?: string, endDate?: string) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
-  
+
   addIncome: (income: Omit<Income, 'id' | 'createdAt'>) => Promise<void>;
   loadIncomes: (startDate?: string, endDate?: string) => Promise<void>;
   deleteIncome: (id: string) => Promise<void>;
-  
+
   setBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => Promise<void>;
   loadBudgets: (month: string) => Promise<void>;
-  
+
   addGoal: (goal: Omit<Goal, 'id' | 'createdAt'>) => Promise<void>;
   loadGoals: () => Promise<void>;
   updateGoal: (id: string, currentAmount: number) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
-  
+
   addAlert: (alert: Omit<Alert, 'id' | 'createdAt'>) => Promise<void>;
   loadAlerts: (unreadOnly?: boolean) => Promise<void>;
   markAlertAsRead: (id: string) => Promise<void>;
-  
+
   getBudgetProgress: () => BudgetProgress[];
   getMonthlyTotal: () => number;
   getMonthlyIncome: () => number;
   checkBudgetAlerts: () => void;
+  reset: () => void;
 }
 
 export const useFinanceStore = create<FinanceState>((set, get) => ({
@@ -51,11 +52,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     set({ isLoading: true });
     try {
       await db.init();
-      
+
       const currentMonth = format(new Date(), 'yyyy-MM');
       const startDate = format(startOfMonth(new Date()), 'yyyy-MM-dd');
       const endDate = format(endOfMonth(new Date()), 'yyyy-MM-dd');
-      
+
       await Promise.all([
         get().loadExpenses(startDate, endDate),
         get().loadIncomes(startDate, endDate),
@@ -73,7 +74,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   addExpense: async (expense) => {
     const newExpense = await db.addExpense(expense);
     set(state => ({ expenses: [newExpense, ...state.expenses] }));
-    
+
     get().checkBudgetAlerts();
   },
 
@@ -173,18 +174,18 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   getBudgetProgress: () => {
     const { expenses, budgets } = get();
-    
+
     return budgets.map(budget => {
       const spent = expenses
         .filter(e => e.category === budget.category)
         .reduce((sum, e) => sum + e.value, 0);
-      
+
       const percentage = (spent / budget.limitAmount) * 100;
-      
+
       let status: 'safe' | 'warning' | 'exceeded' = 'safe';
       if (percentage >= 100) status = 'exceeded';
       else if (percentage >= 80) status = 'warning';
-      
+
       return {
         category: budget.category,
         limitAmount: budget.limitAmount,
@@ -207,7 +208,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   checkBudgetAlerts: () => {
     const budgetProgress = get().getBudgetProgress();
-    
+
     budgetProgress.forEach(async (progress) => {
       if (progress.status === 'warning') {
         await get().addAlert({
@@ -224,6 +225,17 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
           isRead: false,
         });
       }
+    });
+  },
+
+  reset: () => {
+    set({
+      expenses: [],
+      incomes: [],
+      budgets: [],
+      goals: [],
+      alerts: [],
+      isLoading: false,
     });
   },
 }));

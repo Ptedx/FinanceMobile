@@ -150,6 +150,7 @@ app.get('/budgets', authMiddleware, async (req: AuthRequest, res) => {
     if (month) where.month = month;
 
     const budgets = await prisma.budget.findMany({ where });
+    console.log(`Fetched budgets for user: ${req.user!.userId}, count: ${budgets.length}`);
     res.json(budgets);
 });
 

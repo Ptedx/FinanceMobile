@@ -12,13 +12,7 @@ export default function App() {
   const initialize = useFinanceStore(state => state.initialize);
   const { theme, isDarkMode } = useThemeStore();
 
-  useEffect(() => {
-    const initApp = async () => {
-      await initialize();
-      await seedDemoData();
-    };
-    initApp();
-  }, []);
+  // Initialization is now handled in AppNavigator when authenticated
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

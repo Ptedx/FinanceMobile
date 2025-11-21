@@ -90,13 +90,24 @@ const AuthNavigator = () => {
   );
 };
 
+import { useFinanceStore } from '../store/financeStore';
+
+// ... imports
+
 export const AppNavigator = () => {
   const { theme, toggleTheme, isDarkMode } = useThemeStore();
   const { isAuthenticated, checkAuth, logout } = useAuthStore();
+  const initializeFinance = useFinanceStore(state => state.initialize);
 
   useEffect(() => {
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      initializeFinance();
+    }
+  }, [isAuthenticated]);
 
   return (
     <NavigationContainer>

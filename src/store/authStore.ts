@@ -34,6 +34,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     logout: async () => {
         await AuthService.logout();
+        // Reset finance store to clear sensitive data
+        const { useFinanceStore } = require('./financeStore');
+        useFinanceStore.getState().reset();
         set({ isAuthenticated: false, user: null });
     },
 
