@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expenses  Expense[]
+  incomes   Income[]
+  budgets   Budget[]
+  goals     Goal[]
+  alerts    Alert[]
+}
+
+model Expense {
+  id            String   @id @default(uuid())
+  category      String
+  value         Float
+  date          DateTime
+  paymentMethod String
+  isRecurring   Boolean
+  description   String?
+  createdAt     DateTime @default(now())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+model Income {
+  id            String   @id @default(uuid())
+  category      String
+  value         Float
+  date          DateTime
+  isRecurring   Boolean
+  description   String?
+  createdAt     DateTime @default(now())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+model Budget {
+  id          String   @id @default(uuid())
+  category    String
+  limitAmount Float
+  month       String
+  createdAt   DateTime @default(now())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Goal {
+  id            String   @id @default(uuid())
+  title         String
+  targetAmount  Float
+  currentAmount Float
+  targetDate    DateTime
+  type          String
+  category      String?
+  createdAt     DateTime @default(now())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+}
+
+model Alert {
+  id        String   @id @default(uuid())
+  type      String
+  message   String
+  category  String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
