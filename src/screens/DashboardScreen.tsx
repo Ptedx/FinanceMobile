@@ -7,6 +7,7 @@ import { AlertBanner } from '../components/AlertBanner';
 import { AnimatedBarChart } from '../components/AnimatedBarChart';
 import { TransactionTypeSheet } from '../components/TransactionTypeSheet';
 import { useFinanceStore } from '../store/financeStore';
+import { useAuthStore } from '../store/authStore';
 import { useFinanceEngine } from '../hooks/useFinanceEngine';
 import { spacing, typography } from '../theme';
 import { getCategoryColor, getCategoryLabel } from '../constants';
@@ -15,7 +16,8 @@ import { ptBR } from 'date-fns/locale';
 
 export const DashboardScreen = ({ navigation }: any) => {
   const theme = useTheme();
-  const { alerts, markAlertAsRead } = useFinanceStore();
+  const { user } = useAuthStore();
+  const { alerts, markAlertAsRead, goals } = useFinanceStore();
   const { dashboardData, getSpendingInsights } = useFinanceEngine();
   const insights = getSpendingInsights();
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -32,13 +34,24 @@ export const DashboardScreen = ({ navigation }: any) => {
 
   const unreadAlerts = alerts.filter(a => !a.isRead).slice(0, 3);
 
+  const activeGoals = goals
+    .map(g => ({ ...g, progress: g.currentAmount / g.targetAmount }))
+    .filter(g => g.progress >= 0.5 && g.progress < 1)
+    .sort((a, b) => b.progress - a.progress);
+
+  const getMotivationalMessage = (progress: number) => {
+    if (progress >= 0.9) return "Quase lá! A reta final!";
+    if (progress >= 0.7) return "Falta pouco! Mantenha o foco!";
+    return "Você está na metade do caminho! Continue assim!";
+  };
+
   const styles = createStyles(theme);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Olá!</Text>
+          <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0] || 'Usuário'}!</Text>
           <Text style={styles.date}>
             {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
           </Text>
@@ -77,6 +90,31 @@ export const DashboardScreen = ({ navigation }: any) => {
             </View>
           </View>
         </Card>
+
+        {activeGoals.length > 0 && (
+          <Card style={styles.budgetCard}>
+            <Text style={styles.cardTitle}>Metas em Progresso</Text>
+            {activeGoals.map(goal => (
+              <View key={goal.id} style={styles.budgetItem}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text style={{ ...typography.bodySmall, color: theme.colors.onSurface }}>{goal.title}</Text>
+                  <Text style={{ ...typography.caption, color: theme.colors.primary, fontWeight: 'bold' }}>
+                    {(goal.progress * 100).toFixed(0)}%
+                  </Text>
+                </View>
+                <ProgressBar
+                  value={goal.currentAmount}
+                  max={goal.targetAmount}
+                  showPercentage={false}
+                  color={theme.colors.success}
+                />
+                <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant, marginTop: 4, fontStyle: 'italic' }}>
+                  {getMotivationalMessage(goal.progress)}
+                </Text>
+              </View>
+            ))}
+          </Card>
+        )}
 
         {categoryData.length > 0 && (
           <Card style={styles.chartCard}>
