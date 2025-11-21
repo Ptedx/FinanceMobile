@@ -14,9 +14,64 @@ app.use(cors());
 app.use(express.json());
 
 // Auth Routes
+interface RegisterRequest {
+    name: string;
+    email: string;
+    password: string;
+}
+
+interface LoginRequest {
+    email: string;
+    password: string;
+}
+
+interface UpdatePreferencesRequest {
+    themePreference: string;
+}
+
+interface ExpenseRequest {
+    category: string;
+    value: number;
+    date: string;
+    paymentMethod: string;
+    isRecurring: boolean;
+    description?: string;
+}
+
+interface IncomeRequest {
+    category: string;
+    value: number;
+    date: string;
+    isRecurring: boolean;
+    description?: string;
+    goalAllocations?: { goalId: string; amount: number }[];
+}
+
+interface BudgetRequest {
+    category: string;
+    limitAmount: number;
+    month: string;
+}
+
+interface GoalRequest {
+    title: string;
+    targetAmount: number;
+    currentAmount: number;
+    targetDate: string;
+    type: string;
+    category?: string;
+}
+
+interface AlertRequest {
+    type: string;
+    message: string;
+    category?: string;
+    isRead?: boolean;
+}
+
 app.post('/auth/register', async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password } = req.body as RegisterRequest;
 
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
@@ -43,7 +98,7 @@ app.post('/auth/register', async (req, res) => {
 
 app.post('/auth/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password } = req.body as LoginRequest;
         const user = await prisma.user.findUnique({ where: { email } });
 
         if (!user) {
@@ -66,7 +121,7 @@ app.post('/auth/login', async (req, res) => {
 
 app.put('/users/preferences', authMiddleware, async (req: AuthRequest, res) => {
     try {
-        const { themePreference } = req.body;
+        const { themePreference } = req.body as UpdatePreferencesRequest;
         const user = await prisma.user.update({
             where: { id: req.user!.userId },
             data: { themePreference },
@@ -97,7 +152,7 @@ app.get('/expenses', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.post('/expenses', authMiddleware, async (req: AuthRequest, res) => {
-    const { category, value, date, paymentMethod, isRecurring, description } = req.body;
+    const { category, value, date, paymentMethod, isRecurring, description } = req.body as ExpenseRequest;
     const expense = await prisma.expense.create({
         data: {
             category,
@@ -113,7 +168,7 @@ app.post('/expenses', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.put('/expenses/:id', authMiddleware, async (req: AuthRequest, res) => {
-    const { category, value, date, paymentMethod, isRecurring, description } = req.body;
+    const { category, value, date, paymentMethod, isRecurring, description } = req.body as ExpenseRequest;
 
     try {
         const existing = await prisma.expense.findFirst({
@@ -171,7 +226,7 @@ app.get('/incomes', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.post('/incomes', authMiddleware, async (req: AuthRequest, res) => {
-    const { category, value, date, isRecurring, description, goalAllocations } = req.body;
+    const { category, value, date, isRecurring, description, goalAllocations } = req.body as IncomeRequest;
 
     try {
         const income = await prisma.income.create({
@@ -183,7 +238,7 @@ app.post('/incomes', authMiddleware, async (req: AuthRequest, res) => {
                 description,
                 userId: req.user!.userId,
                 allocations: {
-                    create: goalAllocations?.map((alloc: any) => ({
+                    create: goalAllocations?.map((alloc) => ({
                         goalId: alloc.goalId,
                         amount: alloc.amount
                     })) || []
@@ -201,7 +256,7 @@ app.post('/incomes', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.put('/incomes/:id', authMiddleware, async (req: AuthRequest, res) => {
-    const { category, value, date, isRecurring, description, goalAllocations } = req.body;
+    const { category, value, date, isRecurring, description, goalAllocations } = req.body as IncomeRequest;
 
     try {
         const existing = await prisma.income.findFirst({
@@ -229,7 +284,7 @@ app.put('/incomes/:id', authMiddleware, async (req: AuthRequest, res) => {
                     isRecurring,
                     description,
                     allocations: {
-                        create: goalAllocations?.map((alloc: any) => ({
+                        create: goalAllocations?.map((alloc) => ({
                             goalId: alloc.goalId,
                             amount: alloc.amount
                         })) || []
@@ -267,7 +322,7 @@ app.get('/budgets', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.post('/budgets', authMiddleware, async (req: AuthRequest, res) => {
-    const { category, limitAmount, month } = req.body;
+    const { category, limitAmount, month } = req.body as BudgetRequest;
 
     // Check if budget exists for this category/month
     const existing = await prisma.budget.findFirst({
@@ -300,7 +355,7 @@ app.get('/goals', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.post('/goals', authMiddleware, async (req: AuthRequest, res) => {
-    const { title, targetAmount, currentAmount, targetDate, type, category } = req.body;
+    const { title, targetAmount, currentAmount, targetDate, type, category } = req.body as GoalRequest;
     const goal = await prisma.goal.create({
         data: {
             title,
@@ -342,7 +397,7 @@ app.get('/alerts', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.post('/alerts', authMiddleware, async (req: AuthRequest, res) => {
-    const { type, message, category, isRead } = req.body;
+    const { type, message, category, isRead } = req.body as AlertRequest;
     const alert = await prisma.alert.create({
         data: {
             type,

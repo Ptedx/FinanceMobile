@@ -67,7 +67,12 @@ export interface BudgetProgress {
 
 export interface DashboardData {
   monthlyTotal: number;
-  budgetProgress: BudgetProgress[];
+  monthlyIncome: number;
+  budgetProgress: {
+    category: string;
+    spent: number;
+    limitAmount: number;
+  }[];
   goalProgress: number;
   projection: number;
   availableBalance: number;

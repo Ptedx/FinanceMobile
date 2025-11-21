@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { IconButton, FAB, useTheme } from 'react-native-paper';
+import { IconButton, FAB, useTheme, SegmentedButtons } from 'react-native-paper';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { AlertBanner } from '../components/AlertBanner';
 import { AnimatedBarChart } from '../components/AnimatedBarChart';
+import { NetWorthChart } from '../components/NetWorthChart';
 import { TransactionTypeSheet } from '../components/TransactionTypeSheet';
 import { useFinanceStore } from '../store/financeStore';
 import { useAuthStore } from '../store/authStore';
@@ -18,8 +19,13 @@ export const DashboardScreen = ({ navigation }: any) => {
   const theme = useTheme();
   const { user } = useAuthStore();
   const { alerts, markAlertAsRead, goals } = useFinanceStore();
-  const { dashboardData, getSpendingInsights } = useFinanceEngine();
+  const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('6M');
+
+  const { dashboardData, getSpendingInsights, getNetWorthHistory, getComparisonWithLastMonth } = useFinanceEngine();
   const insights = getSpendingInsights();
+  const comparison = getComparisonWithLastMonth();
+  const netWorthHistory = getNetWorthHistory(selectedPeriod);
+
   const [sheetVisible, setSheetVisible] = useState(false);
 
   const categoryData = Object.entries(insights.categoryBreakdown)
@@ -74,11 +80,13 @@ export const DashboardScreen = ({ navigation }: any) => {
 
         <Card style={styles.summaryCard}>
           <Text style={styles.cardTitle}>Resumo do mês</Text>
+
+          {/* Row 1: Balances */}
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Total Gasto</Text>
-              <Text style={styles.summaryValue}>
-                R$ {dashboardData.monthlyTotal.toFixed(2)}
+              <Text style={styles.summaryLabel}>Saldo Atual</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.onSurface }]}>
+                R$ {dashboardData.availableBalance.toFixed(2)}
               </Text>
             </View>
             <View style={styles.summaryDivider} />
@@ -89,6 +97,47 @@ export const DashboardScreen = ({ navigation }: any) => {
               </Text>
             </View>
           </View>
+
+          <View style={styles.horizontalDivider} />
+
+          {/* Row 2: Flows */}
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Receitas</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.primary }]}>
+                R$ {dashboardData.monthlyIncome.toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Gastos</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.error }]}>
+                R$ {dashboardData.monthlyTotal.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+        </Card>
+
+        <Card style={styles.chartCard}>
+          <Text style={styles.cardTitle}>Crescimento Patrimonial</Text>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>
+            <SegmentedButtons
+              value={selectedPeriod}
+              onValueChange={value => setSelectedPeriod(value as any)}
+              buttons={[
+                { value: '1M', label: '1M' },
+                { value: '3M', label: '3M' },
+                { value: '6M', label: '6M' },
+                { value: '1Y', label: '1A' },
+                { value: 'ALL', label: 'Tudo' },
+              ]}
+              density="medium"
+              style={{ minWidth: 300 }}
+            />
+          </ScrollView>
+
+          <NetWorthChart data={netWorthHistory} period={selectedPeriod} />
         </Card>
 
         {activeGoals.length > 0 && (
@@ -222,14 +271,22 @@ const createStyles = (theme: any) =>
       height: 40,
       backgroundColor: theme.colors.outline,
     },
+    horizontalDivider: {
+      height: 1,
+      backgroundColor: theme.colors.outline,
+      marginVertical: spacing.md,
+      opacity: 0.5,
+    },
     summaryLabel: {
       ...typography.bodySmall,
       color: theme.colors.onSurfaceVariant,
       marginBottom: spacing.xs,
+      textAlign: 'center',
     },
     summaryValue: {
       ...typography.h2,
       color: theme.colors.primary,
+      textAlign: 'center',
     },
     chartCard: {
       marginBottom: spacing.md,
@@ -261,4 +318,3 @@ const createStyles = (theme: any) =>
       backgroundColor: theme.colors.primary,
     },
   });
-

@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
   withSpring,
   withDelay,
 } from 'react-native-reanimated';
@@ -29,7 +29,9 @@ export const AnimatedBarChart: React.FC<AnimatedBarChartProps> = ({ data }) => {
     <View style={s.container}>
       {data.map((item, index) => {
         const percentage = total > 0 ? (item.value / total) * 100 : 0;
-        const width = maxValue > 0 ? (item.value / maxValue) * 100 : 0;
+        // Width should be based on percentage (0-100), not relative to max value
+        // This ensures the visual representation matches the percentage text
+        const width = percentage;
 
         return (
           <AnimatedBar
@@ -106,12 +108,12 @@ const AnimatedBar: React.FC<AnimatedBarProps> = ({
         </Animated.Text>
       </View>
       <View style={s.barTrack}>
-        <Animated.View 
+        <Animated.View
           style={[
-            s.barFill, 
+            s.barFill,
             { backgroundColor: color },
             animatedBarStyle,
-          ]} 
+          ]}
         />
       </View>
       <Animated.Text style={[s.barValue, animatedTextStyle]}>
