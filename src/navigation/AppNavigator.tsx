@@ -95,12 +95,13 @@ import { useFinanceStore } from '../store/financeStore';
 // ... imports
 
 export const AppNavigator = () => {
-  const { theme, toggleTheme, isDarkMode } = useThemeStore();
+  const { theme, toggleTheme, isDarkMode, loadTheme } = useThemeStore();
   const { isAuthenticated, checkAuth, logout } = useAuthStore();
   const initializeFinance = useFinanceStore(state => state.initialize);
 
   useEffect(() => {
     checkAuth();
+    loadTheme();
   }, []);
 
   useEffect(() => {

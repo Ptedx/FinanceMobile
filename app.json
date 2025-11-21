@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "finance-app",
+    "name": "Miranha Finance",
     "slug": "finance-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -22,7 +22,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.vinicosta37.financeapp"
+      "package": "com.vinicosta37.financeapp",
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/favicon.png"

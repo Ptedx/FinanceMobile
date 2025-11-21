@@ -19,6 +19,7 @@ model User {
   budgets   Budget[]
   goals     Goal[]
   alerts    Alert[]
+  themePreference String @default("light")
 }
 
 model Expense {

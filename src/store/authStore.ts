@@ -1,10 +1,13 @@
 import { create } from 'zustand';
 import { AuthService } from '../services/AuthService';
 
+import { useThemeStore } from '../hooks/useTheme';
+
 interface User {
     id: string;
     name: string;
     email: string;
+    themePreference?: 'light' | 'dark';
 }
 
 interface AuthState {
@@ -25,11 +28,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     login: async (email, password) => {
         const user = await AuthService.login(email, password);
         set({ isAuthenticated: true, user });
+        if (user.themePreference) {
+            useThemeStore.getState().setDarkMode(user.themePreference === 'dark');
+        }
     },
 
     register: async (name, email, password) => {
         const user = await AuthService.register(name, email, password);
         set({ isAuthenticated: true, user });
+        if (user.themePreference) {
+            useThemeStore.getState().setDarkMode(user.themePreference === 'dark');
+        }
     },
 
     logout: async () => {

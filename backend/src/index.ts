@@ -34,7 +34,7 @@ app.post('/auth/register', async (req, res) => {
 
         const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
-        res.json({ user: { id: user.id, name: user.name, email: user.email }, token });
+        res.json({ user: { id: user.id, name: user.name, email: user.email, themePreference: user.themePreference }, token });
     } catch (error: any) {
         console.error('Registration Error:', error);
         res.status(500).json({ error: 'Error registering user', details: error.message });
@@ -57,10 +57,24 @@ app.post('/auth/login', async (req, res) => {
 
         const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
-        res.json({ user: { id: user.id, name: user.name, email: user.email }, token });
+        res.json({ user: { id: user.id, name: user.name, email: user.email, themePreference: user.themePreference }, token });
     } catch (error: any) {
         console.error('Login Error:', error);
         res.status(500).json({ error: 'Error logging in', details: error.message });
+    }
+});
+
+app.put('/users/preferences', authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        const { themePreference } = req.body;
+        const user = await prisma.user.update({
+            where: { id: req.user!.userId },
+            data: { themePreference },
+        });
+        res.json({ success: true, themePreference: user.themePreference });
+    } catch (error: any) {
+        console.error('Update Preferences Error:', error);
+        res.status(500).json({ error: 'Error updating preferences', details: error.message });
     }
 });
 

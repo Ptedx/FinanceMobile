@@ -3,7 +3,7 @@ import { Expense, Budget, Goal, Alert, Income } from '../types';
 import { AuthService } from './AuthService';
 import { Platform } from 'react-native';
 
-const API_URL = 'http://192.168.15.113:3006';
+import { API_URL } from '../config/api';
 
 async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
     const token = await AuthService.getToken();

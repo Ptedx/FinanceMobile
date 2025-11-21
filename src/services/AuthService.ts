@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const API_URL = 'http://192.168.15.113:3006';
+import { API_URL } from '../config/api';
 
 export const AuthService = {
     async login(email: string, password: string) {
@@ -44,5 +44,23 @@ export const AuthService = {
 
     async getToken() {
         return await AsyncStorage.getItem('token');
+    },
+
+    async updateThemePreference(themePreference: 'light' | 'dark') {
+        const token = await this.getToken();
+        if (!token) return;
+
+        const response = await fetch(`${API_URL}/users/preferences`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ themePreference }),
+        });
+
+        if (!response.ok) {
+            console.error('Failed to update theme preference');
+        }
     }
 };

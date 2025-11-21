@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { TextInput, Button, Text, HelperText, useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
@@ -10,6 +10,8 @@ export const RegisterScreen = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    const [showPassword, setShowPassword] = useState(false);
 
     const { register } = useAuthStore();
     const navigation = useNavigation();
@@ -34,63 +36,79 @@ export const RegisterScreen = () => {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <View style={styles.imageContainer}>
-                <Image
-                    source={require('../../assets/login_illustration.png')}
-                    style={styles.image}
-                    resizeMode="contain"
+        <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+        >
+            <ScrollView
+                contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}
+                keyboardShouldPersistTaps="handled"
+            >
+                <View style={styles.imageContainer}>
+                    <Image
+                        source={require('../../assets/login_illustration.png')}
+                        style={styles.image}
+                        resizeMode="contain"
+                    />
+                </View>
+                <Text variant="headlineMedium" style={styles.title}>Comece sua jornada no Miranha Finance!</Text>
+
+                <TextInput
+                    label="Name"
+                    value={name}
+                    onChangeText={setName}
+                    mode="outlined"
+                    style={styles.input}
                 />
-            </View>
-            <Text variant="headlineMedium" style={styles.title}>Comece sua jornada no Miranha Finance!</Text>
 
-            <TextInput
-                label="Name"
-                value={name}
-                onChangeText={setName}
-                mode="outlined"
-                style={styles.input}
-            />
+                <TextInput
+                    label="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    mode="outlined"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    style={styles.input}
+                />
 
-            <TextInput
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                mode="outlined"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                style={styles.input}
-            />
+                <TextInput
+                    label="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    mode="outlined"
+                    secureTextEntry={!showPassword}
+                    right={
+                        <TextInput.Icon
+                            icon={showPassword ? "eye-off" : "eye"}
+                            onPress={() => setShowPassword(!showPassword)}
+                            forceTextInputFocus={false}
+                            style={{ backgroundColor: 'transparent' }}
+                        />
+                    }
+                    style={styles.input}
+                />
 
-            <TextInput
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                mode="outlined"
-                secureTextEntry
-                style={styles.input}
-            />
+                {error ? <HelperText type="error" visible={!!error}>{error}</HelperText> : null}
 
-            {error ? <HelperText type="error" visible={!!error}>{error}</HelperText> : null}
+                <Button
+                    mode="contained"
+                    onPress={handleRegister}
+                    loading={loading}
+                    disabled={loading}
+                    style={styles.button}
+                >
+                    Register
+                </Button>
 
-            <Button
-                mode="contained"
-                onPress={handleRegister}
-                loading={loading}
-                disabled={loading}
-                style={styles.button}
-            >
-                Register
-            </Button>
-
-            <Button
-                mode="text"
-                onPress={() => navigation.goBack()}
-                style={styles.link}
-            >
-                Already have an account? Login
-            </Button>
-        </View>
+                <Button
+                    mode="text"
+                    onPress={() => navigation.goBack()}
+                    style={styles.link}
+                >
+                    Already have an account? Login
+                </Button>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 };
 
