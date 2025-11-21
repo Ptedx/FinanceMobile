@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -18,9 +18,9 @@ interface ProgressBarProps {
   height?: number;
 }
 
-export const ProgressBar: React.FC<ProgressBarProps> = ({ 
-  value, 
-  max, 
+export const ProgressBar: React.FC<ProgressBarProps> = ({
+  value,
+  max,
   label,
   showPercentage = false,
   color,
@@ -49,24 +49,24 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles(theme).container}>
       {label && (
-        <View style={styles.labelContainer}>
-          <Text style={styles.label}>{label}</Text>
+        <View style={styles(theme).labelContainer}>
+          <Text style={styles(theme).label}>{label}</Text>
           {showPercentage && (
-            <Text style={[styles.percentage, { color: getColor() }]}>
+            <Text style={[styles(theme).percentage, { color: getColor() }]}>
               {percentage.toFixed(0)}%
             </Text>
           )}
         </View>
       )}
       <View style={[styles(theme).track, { height }]}>
-        <Animated.View 
+        <Animated.View
           style={[
-            styles(theme).fill, 
+            styles(theme).fill,
             { backgroundColor: getColor(), height },
             animatedStyle,
-          ]} 
+          ]}
         />
       </View>
     </View>

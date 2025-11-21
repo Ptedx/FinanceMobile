@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Image } from 'react-native';
 import { TextInput, Button, Text, HelperText, useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
@@ -34,7 +34,14 @@ export const LoginScreen = () => {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <Text variant="headlineMedium" style={styles.title}>Welcome Back</Text>
+            <View style={styles.imageContainer}>
+                <Image
+                    source={require('../../assets/login_illustration.png')}
+                    style={styles.image}
+                    resizeMode="contain"
+                />
+            </View>
+            <Text variant="headlineMedium" style={styles.title}>Bem vindo de volta ao MiranhaFinance!</Text>
 
             <TextInput
                 label="Email"
@@ -97,5 +104,13 @@ const styles = StyleSheet.create({
     },
     link: {
         marginTop: 12,
+    },
+    imageContainer: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    image: {
+        width: 200,
+        height: 200,
     },
 });
