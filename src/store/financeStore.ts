@@ -14,10 +14,12 @@ interface FinanceState {
   initialize: () => Promise<void>;
 
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>;
+  updateExpense: (id: string, expense: Partial<Expense>) => Promise<void>;
   loadExpenses: (startDate?: string, endDate?: string) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
 
   addIncome: (income: Omit<Income, 'id' | 'createdAt'>) => Promise<void>;
+  updateIncome: (id: string, income: Partial<Income>) => Promise<void>;
   loadIncomes: (startDate?: string, endDate?: string) => Promise<void>;
   deleteIncome: (id: string) => Promise<void>;
 
@@ -78,6 +80,14 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     get().checkBudgetAlerts();
   },
 
+  updateExpense: async (id, expense) => {
+    const updatedExpense = await db.updateExpense(id, expense);
+    set(state => ({
+      expenses: state.expenses.map(e => e.id === id ? updatedExpense : e)
+    }));
+    get().checkBudgetAlerts();
+  },
+
   loadExpenses: async (startDate, endDate) => {
     const expenses = await db.getExpenses(startDate, endDate);
     set({ expenses });
@@ -108,6 +118,49 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         }));
       }
     }
+  },
+
+  updateIncome: async (id, income) => {
+    const { incomes, goals } = get();
+    const oldIncome = incomes.find(i => i.id === id);
+
+    // Handle goal allocations update
+    if (oldIncome && (oldIncome.goalAllocations || income.goalAllocations)) {
+      const oldAllocations = oldIncome.goalAllocations || [];
+      const newAllocations = income.goalAllocations || [];
+
+      // 1. Revert old allocations
+      for (const alloc of oldAllocations) {
+        const goal = goals.find(g => g.id === alloc.goalId);
+        if (goal) {
+          const newAmount = Math.max(0, goal.currentAmount - alloc.amount);
+          await db.updateGoal(goal.id, newAmount);
+          // Update local state immediately to reflect changes for next steps
+          set(state => ({
+            goals: state.goals.map(g => g.id === goal.id ? { ...g, currentAmount: newAmount } : g)
+          }));
+        }
+      }
+
+      // 2. Apply new allocations
+      // Refresh goals from state as they might have been updated above
+      const currentGoals = get().goals;
+      for (const alloc of newAllocations) {
+        const goal = currentGoals.find(g => g.id === alloc.goalId);
+        if (goal) {
+          const newAmount = Math.min(goal.targetAmount, goal.currentAmount + alloc.amount);
+          await db.updateGoal(goal.id, newAmount);
+          set(state => ({
+            goals: state.goals.map(g => g.id === goal.id ? { ...g, currentAmount: newAmount } : g)
+          }));
+        }
+      }
+    }
+
+    const updatedIncome = await db.updateIncome(id, income);
+    set(state => ({
+      incomes: state.incomes.map(i => i.id === id ? updatedIncome : i)
+    }));
   },
 
   loadIncomes: async (startDate, endDate) => {

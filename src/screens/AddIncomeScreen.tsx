@@ -10,7 +10,7 @@ import { useThemeStore } from '../hooks/useTheme';
 import { spacing, typography } from '../theme';
 import { INCOME_CATEGORIES } from '../constants';
 import { IncomeCategory, GoalAllocation } from '../types';
-import { format } from 'date-fns';
+
 
 const incomeSchema = z.object({
   value: z.string().min(1, 'Valor é obrigatório'),
@@ -21,20 +21,43 @@ const incomeSchema = z.object({
 
 type IncomeFormData = z.infer<typeof incomeSchema>;
 
-export const AddIncomeScreen = ({ navigation }: any) => {
+export const AddIncomeScreen = ({ navigation, route }: any) => {
   const { theme } = useThemeStore();
-  const { addIncome, goals } = useFinanceStore();
+  const { addIncome, updateIncome, goals } = useFinanceStore();
   const [date, setDate] = useState(new Date());
   const [goalAllocations, setGoalAllocations] = useState<GoalAllocation[]>([]);
   const [showGoalAllocation, setShowGoalAllocation] = useState(false);
 
+  const incomeToEdit = route.params?.income;
+  const isEditing = !!incomeToEdit;
+
+  React.useEffect(() => {
+    if (isEditing) {
+      navigation.setOptions({
+        title: `Editar receita ${incomeToEdit.description || incomeToEdit.category}`
+      });
+
+      if (incomeToEdit.date) {
+        const dateObj = new Date(incomeToEdit.date);
+        if (!isNaN(dateObj.getTime())) {
+          setDate(dateObj);
+        }
+      }
+
+      if (incomeToEdit.goalAllocations) {
+        setGoalAllocations(incomeToEdit.goalAllocations);
+        setShowGoalAllocation(true);
+      }
+    }
+  }, [isEditing, incomeToEdit, navigation]);
+
   const { control, handleSubmit, watch, formState: { errors } } = useForm<IncomeFormData>({
     resolver: zodResolver(incomeSchema),
     defaultValues: {
-      value: '',
-      description: '',
-      category: '',
-      isRecurring: false,
+      value: incomeToEdit ? incomeToEdit.value.toString().replace('.', ',') : '',
+      description: incomeToEdit?.description || '',
+      category: incomeToEdit?.category || '',
+      isRecurring: incomeToEdit?.isRecurring || false,
     },
   });
 
@@ -48,9 +71,9 @@ export const AddIncomeScreen = ({ navigation }: any) => {
 
   const handleGoalAllocation = (goalId: string, amount: string) => {
     const parsedAmount = parseFloat(amount.replace(',', '.')) || 0;
-    
+
     const existingIndex = goalAllocations.findIndex(a => a.goalId === goalId);
-    
+
     if (parsedAmount === 0) {
       setGoalAllocations(goalAllocations.filter(a => a.goalId !== goalId));
     } else if (existingIndex >= 0) {
@@ -70,15 +93,19 @@ export const AddIncomeScreen = ({ navigation }: any) => {
     const income = {
       category: data.category as IncomeCategory,
       value: parsedValue,
-      date: format(date, 'yyyy-MM-dd'),
+      date: date.toISOString(),
       isRecurring: data.isRecurring,
       description: data.description,
       goalAllocations: goalAllocations.length > 0 ? goalAllocations : undefined,
     };
 
-    await addIncome(income);
+    if (isEditing) {
+      await updateIncome(incomeToEdit.id, income);
+    } else {
+      await addIncome(income);
+    }
 
-        navigation.goBack();
+    navigation.goBack();
   };
 
   const styles = StyleSheet.create({
@@ -370,7 +397,7 @@ export const AddIncomeScreen = ({ navigation }: any) => {
         buttonColor={theme.colors.success}
         disabled={remainingAmount < 0 || parsedValue === 0}
       >
-        Adicionar Receita
+        {isEditing ? 'Salvar Alterações' : 'Adicionar Receita'}
       </Button>
     </ScrollView>
   );

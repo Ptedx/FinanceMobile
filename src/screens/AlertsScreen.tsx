@@ -1,13 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { useTheme } from 'react-native-paper';
 import { Card } from '../components/Card';
 import { AlertBanner } from '../components/AlertBanner';
 import { useFinanceStore } from '../store/financeStore';
-import { theme, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
 import { Alert } from '../types';
 
 export const AlertsScreen = () => {
   const { alerts, markAlertAsRead } = useFinanceStore();
+  const theme = useTheme();
 
   const renderAlert = ({ item }: { item: Alert }) => (
     <AlertBanner
@@ -17,7 +19,7 @@ export const AlertsScreen = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <FlatList
         data={alerts}
         renderItem={renderAlert}
@@ -25,7 +27,7 @@ export const AlertsScreen = () => {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
               Nenhum alerta no momento.{'\n'}
               Você receberá alertas quando seus gastos se aproximarem dos limites.
             </Text>
@@ -39,7 +41,6 @@ export const AlertsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   list: {
     padding: spacing.md,
@@ -53,7 +54,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...typography.body,
-    color: theme.colors.onSurfaceVariant,
     textAlign: 'center',
   },
 });

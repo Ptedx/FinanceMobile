@@ -44,22 +44,49 @@ export class APIDatabaseService implements IDatabaseService {
         return fetchWithAuth(`/expenses?${query.toString()}`);
     }
 
+    async updateExpense(id: string, expense: Partial<Expense>): Promise<Expense> {
+        return fetchWithAuth(`/expenses/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(expense),
+        });
+    }
+
     async deleteExpense(id: string): Promise<void> {
         return fetchWithAuth(`/expenses/${id}`, { method: 'DELETE' });
     }
 
+    private mapIncome(income: any): Income {
+        return {
+            ...income,
+            goalAllocations: income.allocations?.map((a: any) => ({
+                goalId: a.goalId,
+                amount: a.amount
+            }))
+        };
+    }
+
     async addIncome(income: Omit<Income, 'id' | 'createdAt'>): Promise<Income> {
-        return fetchWithAuth('/incomes', {
+        const response = await fetchWithAuth('/incomes', {
             method: 'POST',
             body: JSON.stringify(income),
         });
+        return this.mapIncome(response);
     }
 
     async getIncomes(startDate?: string, endDate?: string): Promise<Income[]> {
         const query = new URLSearchParams();
         if (startDate) query.append('startDate', startDate);
         if (endDate) query.append('endDate', endDate);
-        return fetchWithAuth(`/incomes?${query.toString()}`);
+        const response = await fetchWithAuth(`/incomes?${query.toString()}`);
+        return response.map((i: any) => this.mapIncome(i));
+    }
+
+    async updateIncome(id: string, income: Partial<Income>): Promise<Income> {
+        const response = await fetchWithAuth(`/incomes/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(income),
+        });
+        return this.mapIncome(response);
     }
 
     async deleteIncome(id: string): Promise<void> {

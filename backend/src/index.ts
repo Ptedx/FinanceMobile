@@ -112,6 +112,36 @@ app.post('/expenses', authMiddleware, async (req: AuthRequest, res) => {
     res.json(expense);
 });
 
+app.put('/expenses/:id', authMiddleware, async (req: AuthRequest, res) => {
+    const { category, value, date, paymentMethod, isRecurring, description } = req.body;
+
+    try {
+        const existing = await prisma.expense.findFirst({
+            where: { id: req.params.id, userId: req.user!.userId }
+        });
+
+        if (!existing) {
+            return res.status(404).json({ error: 'Expense not found' });
+        }
+
+        const expense = await prisma.expense.update({
+            where: { id: req.params.id },
+            data: {
+                category,
+                value,
+                date: new Date(date),
+                paymentMethod,
+                isRecurring,
+                description,
+            },
+        });
+        res.json(expense);
+    } catch (error: any) {
+        console.error('Update Expense Error:', error);
+        res.status(500).json({ error: 'Error updating expense', details: error.message });
+    }
+});
+
 app.delete('/expenses/:id', authMiddleware, async (req: AuthRequest, res) => {
     await prisma.expense.deleteMany({
         where: { id: req.params.id, userId: req.user!.userId },
@@ -131,23 +161,91 @@ app.get('/incomes', authMiddleware, async (req: AuthRequest, res) => {
         };
     }
 
-    const incomes = await prisma.income.findMany({ where });
+    const incomes = await prisma.income.findMany({
+        where,
+        include: {
+            allocations: true
+        }
+    });
     res.json(incomes);
 });
 
 app.post('/incomes', authMiddleware, async (req: AuthRequest, res) => {
-    const { category, value, date, isRecurring, description } = req.body;
-    const income = await prisma.income.create({
-        data: {
-            category,
-            value,
-            date: new Date(date),
-            isRecurring,
-            description,
-            userId: req.user!.userId,
-        },
-    });
-    res.json(income);
+    const { category, value, date, isRecurring, description, goalAllocations } = req.body;
+
+    try {
+        const income = await prisma.income.create({
+            data: {
+                category,
+                value,
+                date: new Date(date),
+                isRecurring,
+                description,
+                userId: req.user!.userId,
+                allocations: {
+                    create: goalAllocations?.map((alloc: any) => ({
+                        goalId: alloc.goalId,
+                        amount: alloc.amount
+                    })) || []
+                }
+            },
+            include: {
+                allocations: true
+            }
+        });
+        res.json(income);
+    } catch (error: any) {
+        console.error('Create Income Error:', error);
+        res.status(500).json({ error: 'Error creating income', details: error.message });
+    }
+});
+
+app.put('/incomes/:id', authMiddleware, async (req: AuthRequest, res) => {
+    const { category, value, date, isRecurring, description, goalAllocations } = req.body;
+
+    try {
+        const existing = await prisma.income.findFirst({
+            where: { id: req.params.id, userId: req.user!.userId }
+        });
+
+        if (!existing) {
+            return res.status(404).json({ error: 'Income not found' });
+        }
+
+        // Transaction to update income and allocations
+        const income = await prisma.$transaction(async (tx) => {
+            // 1. Delete existing allocations
+            await tx.goalAllocation.deleteMany({
+                where: { incomeId: req.params.id }
+            });
+
+            // 2. Update income and create new allocations
+            return await tx.income.update({
+                where: { id: req.params.id },
+                data: {
+                    category,
+                    value,
+                    date: new Date(date),
+                    isRecurring,
+                    description,
+                    allocations: {
+                        create: goalAllocations?.map((alloc: any) => ({
+                            goalId: alloc.goalId,
+                            amount: alloc.amount
+                        })) || []
+                    }
+                },
+                include: {
+                    allocations: true
+                }
+            });
+        });
+
+        res.json(income);
+    } catch (error: any) {
+        console.error('Update Income Error:', error);
+        res.status(500).json({ error: 'Error updating income', details: error.message });
+    }
 });
 
 app.delete('/incomes/:id', authMiddleware, async (req: AuthRequest, res) => {

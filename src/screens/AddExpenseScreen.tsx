@@ -9,7 +9,7 @@ import { useFinanceStore } from '../store/financeStore';
 import { spacing, typography } from '../theme';
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, getCategoryColor } from '../constants';
 import { ExpenseCategory, PaymentMethod } from '../types';
-import { format } from 'date-fns';
+
 
 const expenseSchema = z.object({
   value: z.string().min(1, 'Valor é obrigatório'),
@@ -21,33 +21,62 @@ const expenseSchema = z.object({
 
 type ExpenseFormData = z.infer<typeof expenseSchema>;
 
-export const AddExpenseScreen = ({ navigation }: any) => {
+export const AddExpenseScreen = ({ navigation, route }: any) => {
   const theme = useTheme();
-  const { addExpense } = useFinanceStore();
+  const { addExpense, updateExpense } = useFinanceStore();
   const [date, setDate] = useState(new Date());
+
+  const expenseToEdit = route.params?.expense;
+  const isEditing = !!expenseToEdit;
+
+  React.useEffect(() => {
+    if (isEditing) {
+      navigation.setOptions({
+        title: `Editar gasto ${expenseToEdit.description || expenseToEdit.category}`
+      });
+
+      if (expenseToEdit.date) {
+        // Handle both YYYY-MM-DD and ISO strings
+        const dateObj = new Date(expenseToEdit.date);
+        if (!isNaN(dateObj.getTime())) {
+          setDate(dateObj);
+        }
+      }
+    }
+  }, [isEditing, expenseToEdit, navigation]);
 
   const { control, handleSubmit, formState: { errors } } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
-      value: '',
-      description: '',
-      category: '',
-      paymentMethod: '',
-      isRecurring: false,
+      value: expenseToEdit ? expenseToEdit.value.toString().replace('.', ',') : '',
+      description: expenseToEdit?.description || '',
+      category: expenseToEdit?.category || '',
+      paymentMethod: expenseToEdit?.paymentMethod || '',
+      isRecurring: expenseToEdit?.isRecurring || false,
     },
   });
 
   const onSubmit = async (data: ExpenseFormData) => {
-    await addExpense({
+    const expenseData = {
       category: data.category as ExpenseCategory,
       value: parseFloat(data.value.replace(',', '.')),
-      date: format(date, 'yyyy-MM-dd'),
+      date: date.toISOString(),
       paymentMethod: data.paymentMethod as PaymentMethod,
       isRecurring: data.isRecurring,
       description: data.description,
-    });
+    };
 
-    navigation.goBack();
+    try {
+      if (isEditing) {
+        await updateExpense(expenseToEdit.id, expenseData);
+      } else {
+        await addExpense(expenseData);
+      }
+
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error in onSubmit:', error);
+    }
   };
 
   const styles = createStyles(theme);
@@ -185,7 +214,7 @@ export const AddExpenseScreen = ({ navigation }: any) => {
         style={styles.submitButton}
         contentStyle={styles.submitButtonContent}
       >
-        Adicionar Gasto
+        {isEditing ? 'Salvar Alterações' : 'Adicionar Gasto'}
       </Button>
     </ScrollView>
   );

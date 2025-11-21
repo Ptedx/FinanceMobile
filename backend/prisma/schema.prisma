@@ -45,6 +45,7 @@ model Income {
   createdAt     DateTime @default(now())
   userId        String
   user          User     @relation(fields: [userId], references: [id])
+  allocations   GoalAllocation[]
 }
 
 model Budget {
@@ -68,6 +69,7 @@ model Goal {
   createdAt     DateTime @default(now())
   userId        String
   user          User     @relation(fields: [userId], references: [id])
+  allocations   GoalAllocation[]
 }
 
 model Alert {
@@ -79,4 +81,15 @@ model Alert {
   createdAt DateTime @default(now())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+}
+
+
+model GoalAllocation {
+  id        String   @id @default(uuid())
+  incomeId  String
+  income    Income   @relation(fields: [incomeId], references: [id], onDelete: Cascade)
+  goalId    String
+  goal      Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  amount    Float
+  createdAt DateTime @default(now())
 }
