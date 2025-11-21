@@ -6,7 +6,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { spacing, typography } from '../theme';
+import { spacing, typography, AppTheme } from '../theme';
 import { useTheme } from 'react-native-paper';
 
 interface ProgressBarProps {
@@ -26,7 +26,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   color,
   height = 8,
 }) => {
-  const theme = useTheme();
+  const theme = useTheme() as AppTheme;
   const percentage = Math.min((value / max) * 100, 100);
   const progress = useSharedValue(0);
 

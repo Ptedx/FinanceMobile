@@ -41,7 +41,7 @@ export const LoginScreen = () => {
                     resizeMode="contain"
                 />
             </View>
-            <Text variant="headlineMedium" style={styles.title}>Bem vindo de volta ao MiranhaFinance!</Text>
+            <Text variant="headlineMedium" style={styles.title}>Bem vindo de volta ao Miranha Finance!</Text>
 
             <TextInput
                 label="Email"

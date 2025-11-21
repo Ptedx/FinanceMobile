@@ -125,7 +125,7 @@ export const AppNavigator = () => {
             component={TabNavigator}
             options={{
               headerShown: true,
-              title: 'Finance App',
+              title: 'Miranha Finance',
               headerRight: () => (
                 <View style={{ flexDirection: 'row' }}>
                   <IconButton

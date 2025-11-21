@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { IconButton, SegmentedButtons, Menu, Button } from 'react-native-paper';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { IconButton, SegmentedButtons, Chip } from 'react-native-paper';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { Card } from '../components/Card';
 import { useFinanceStore } from '../store/financeStore';
@@ -13,45 +13,35 @@ import { Expense, Income } from '../types';
 
 type Transaction = (Expense & { type: 'expense' }) | (Income & { type: 'income' });
 
-type PeriodOption = 'month' | '3months' | '6months' | 'year' | 'all';
-
 export const TimelineScreen = ({ navigation }: any) => {
   const { theme } = useThemeStore();
   const { expenses, incomes, deleteExpense, deleteIncome } = useFinanceStore();
   const [viewMode, setViewMode] = useState<'all' | 'expenses' | 'incomes'>('all');
-  const [period, setPeriod] = useState<PeriodOption>('month');
-  const [menuVisible, setMenuVisible] = useState(false);
+  const [period, setPeriod] = useState<number | 'all'>(1);
+  const [customMonths, setCustomMonths] = useState('');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
-  const getDateRange = (period: PeriodOption) => {
+  const getDateRange = (p: number | 'all') => {
     const now = new Date();
-    switch (period) {
-      case 'month':
-        return { start: startOfMonth(now), end: endOfMonth(now) };
-      case '3months':
-        return { start: startOfMonth(subMonths(now, 2)), end: endOfMonth(now) };
-      case '6months':
-        return { start: startOfMonth(subMonths(now, 5)), end: endOfMonth(now) };
-      case 'year':
-        return { start: startOfMonth(subMonths(now, 11)), end: endOfMonth(now) };
-      case 'all':
-        return { start: new Date(0), end: new Date() };
+    if (p === 'all') {
+      return { start: new Date(0), end: new Date() };
     }
+    return { start: startOfMonth(subMonths(now, p - 1)), end: endOfMonth(now) };
   };
 
   const transactions = useMemo(() => {
     const { start, end } = getDateRange(period);
-    
+
     let txs: Transaction[] = [];
-    
+
     if (viewMode === 'all' || viewMode === 'expenses') {
       txs = [...txs, ...expenses.map(e => ({ ...e, type: 'expense' as const }))];
     }
-    
+
     if (viewMode === 'all' || viewMode === 'incomes') {
       txs = [...txs, ...incomes.map(i => ({ ...i, type: 'income' as const }))];
     }
-    
+
     return txs
       .filter(tx => {
         const txDate = new Date(tx.date);
@@ -75,26 +65,15 @@ export const TimelineScreen = ({ navigation }: any) => {
       deleteIncome(transaction.id);
     }
     setSelectedTransaction(null);
-    setMenuVisible(false);
-  };
-
-  const getPeriodLabel = (p: PeriodOption) => {
-    switch (p) {
-      case 'month': return 'Este mês';
-      case '3months': return 'Últimos 3 meses';
-      case '6months': return 'Últimos 6 meses';
-      case 'year': return 'Último ano';
-      case 'all': return 'Tudo';
-    }
   };
 
   const renderTransaction = ({ item }: { item: Transaction }) => {
     const isExpense = item.type === 'expense';
-    const categoryLabel = isExpense 
+    const categoryLabel = isExpense
       ? getCategoryLabel((item as Expense).category)
       : getIncomeCategoryLabel((item as Income).category);
-    const categoryColor = isExpense 
-      ? getCategoryColor((item as Expense).category) 
+    const categoryColor = isExpense
+      ? getCategoryColor((item as Expense).category)
       : theme.colors.success;
 
     return (
@@ -117,9 +96,9 @@ export const TimelineScreen = ({ navigation }: any) => {
             </Text>
           </View>
           <View style={styles.right}>
-            <Text 
+            <Text
               style={[
-                styles.value, 
+                styles.value,
                 { color: isExpense ? theme.colors.error : theme.colors.success }
               ]}
             >
@@ -141,13 +120,13 @@ export const TimelineScreen = ({ navigation }: any) => {
             </View>
           </View>
         </View>
-        
+
         {item.description && (
           <Text style={[styles.description, { color: theme.colors.onSurface }]}>
             {item.description}
           </Text>
         )}
-        
+
         <View style={[styles.detailsRow, { borderTopColor: theme.colors.outline }]}>
           {isExpense && (
             <Text style={[styles.detailText, { color: theme.colors.onSurfaceVariant }]}>
@@ -180,18 +159,36 @@ export const TimelineScreen = ({ navigation }: any) => {
       padding: spacing.md,
       gap: spacing.md,
     },
-    periodButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: spacing.sm,
-      borderRadius: 8,
+    periodContainer: {
+      gap: spacing.sm,
+    },
+    chipsContainer: {
+      gap: spacing.sm,
+      paddingRight: spacing.md,
+    },
+    chip: {
+      backgroundColor: theme.colors.surface,
       borderWidth: 1,
       borderColor: theme.colors.outline,
     },
-    periodText: {
+    customInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: spacing.md,
+      height: 40,
+      width: '100%',
+    },
+    customInput: {
       ...typography.body,
-      color: theme.colors.onSurface,
+      flex: 1,
+      padding: 0,
+    },
+    customInputLabel: {
+      ...typography.bodySmall,
+      marginLeft: spacing.xs,
     },
     list: {
       padding: spacing.md,
@@ -284,27 +281,50 @@ export const TimelineScreen = ({ navigation }: any) => {
             { value: 'incomes', label: 'Receitas' },
           ]}
         />
-        
-        <Menu
-          visible={menuVisible}
-          onDismiss={() => setMenuVisible(false)}
-          anchorPosition="bottom"
-          anchor={
-            <TouchableOpacity 
-              style={styles.periodButton}
-              onPress={() => setMenuVisible(true)}
+
+        <View style={styles.periodContainer}>
+          <View style={[styles.customInputContainer, { borderColor: theme.colors.outline }]}>
+            <TextInput
+              value={customMonths}
+              onChangeText={(text) => {
+                setCustomMonths(text);
+                const val = parseInt(text);
+                if (!isNaN(val) && val > 0) {
+                  setPeriod(val);
+                }
+              }}
+              placeholder="Digite a quantidade de meses..."
+              placeholderTextColor={theme.colors.onSurfaceVariant}
+              keyboardType="numeric"
+              style={[styles.customInput, { color: theme.colors.onSurface }]}
+            />
+            <Text style={[styles.customInputLabel, { color: theme.colors.onSurfaceVariant }]}>meses</Text>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsContainer}>
+            {[1, 3, 6, 12].map((months) => (
+              <Chip
+                key={months}
+                selected={period === months}
+                onPress={() => { setPeriod(months); setCustomMonths(''); }}
+                style={[styles.chip, period === months && { backgroundColor: theme.colors.primary + '20' }]}
+                textStyle={{ color: period === months ? theme.colors.primary : theme.colors.onSurface }}
+                showSelectedOverlay
+              >
+                {months === 12 ? '1 Ano' : `${months} Meses`}
+              </Chip>
+            ))}
+            <Chip
+              selected={period === 'all'}
+              onPress={() => { setPeriod('all'); setCustomMonths(''); }}
+              style={[styles.chip, period === 'all' && { backgroundColor: theme.colors.primary + '20' }]}
+              textStyle={{ color: period === 'all' ? theme.colors.primary : theme.colors.onSurface }}
+              showSelectedOverlay
             >
-              <Text style={styles.periodText}>{getPeriodLabel(period)}</Text>
-              <Icon name="chevron-down" size={20} color={theme.colors.onSurface} />
-            </TouchableOpacity>
-          }
-        >
-          <Menu.Item onPress={() => { setPeriod('month'); setMenuVisible(false); }} title="Este mês" />
-          <Menu.Item onPress={() => { setPeriod('3months'); setMenuVisible(false); }} title="Últimos 3 meses" />
-          <Menu.Item onPress={() => { setPeriod('6months'); setMenuVisible(false); }} title="Últimos 6 meses" />
-          <Menu.Item onPress={() => { setPeriod('year'); setMenuVisible(false); }} title="Último ano" />
-          <Menu.Item onPress={() => { setPeriod('all'); setMenuVisible(false); }} title="Tudo" />
-        </Menu>
+              Tudo
+            </Chip>
+          </ScrollView>
+        </View>
       </View>
 
       <FlatList
