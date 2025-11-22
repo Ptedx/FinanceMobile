@@ -5,7 +5,7 @@ import { useFinanceStore } from '../store/financeStore';
 import { spacing, typography } from '../theme';
 import { ProgressBar } from '../components/ProgressBar';
 import { AddBudgetSheet } from '../components/AddBudgetSheet';
-import { getCategoryLabel, getCategoryIcon } from '../constants';
+import { getCategoryLabel, getCategoryIcon, getCategoryColor } from '../constants';
 import { Budget } from '../types';
 
 export const BudgetsScreen = () => {
@@ -67,12 +67,12 @@ export const BudgetsScreen = () => {
             >
               <View style={styles.cardHeader}>
                 <View style={styles.categoryInfo}>
-                  <Icon source={getCategoryIcon(item.category)} size={24} color={theme.colors.primary} />
+                  <Icon source={getCategoryIcon(item.category)} size={24} color={getCategoryColor(item.category)} />
                   <Text style={styles.categoryName}>{getCategoryLabel(item.category)}</Text>
                 </View>
                 <Text style={[
                   styles.percentage,
-                  { color: item.status === 'exceeded' ? theme.colors.error : theme.colors.primary }
+                  { color: item.status === 'exceeded' ? theme.colors.error : getCategoryColor(item.category) }
                 ]}>
                   {item.percentage.toFixed(0)}%
                 </Text>
@@ -82,7 +82,7 @@ export const BudgetsScreen = () => {
                 value={item.spent}
                 max={item.limitAmount}
                 showPercentage={false}
-                color={item.status === 'exceeded' ? theme.colors.error : item.status === 'warning' ? (theme.colors as any).warning : theme.colors.primary}
+                color={item.status === 'exceeded' ? theme.colors.error : item.status === 'warning' ? (theme.colors as any).warning : getCategoryColor(item.category)}
               />
 
               <View style={styles.cardFooter}>

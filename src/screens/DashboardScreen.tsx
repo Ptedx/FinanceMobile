@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { IconButton, FAB, useTheme, SegmentedButtons } from 'react-native-paper';
+import { IconButton, FAB, useTheme, SegmentedButtons, Icon } from 'react-native-paper';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { AlertBanner } from '../components/AlertBanner';
@@ -11,7 +11,7 @@ import { useFinanceStore } from '../store/financeStore';
 import { useAuthStore } from '../store/authStore';
 import { useFinanceEngine } from '../hooks/useFinanceEngine';
 import { spacing, typography } from '../theme';
-import { getCategoryColor, getCategoryLabel } from '../constants';
+import { getCategoryColor, getCategoryLabel, getCategoryIcon } from '../constants';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -20,6 +20,8 @@ export const DashboardScreen = ({ navigation }: any) => {
   const { user } = useAuthStore();
   const { alerts, markAlertAsRead, goals } = useFinanceStore();
   const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('6M');
+
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
   const { dashboardData, getSpendingInsights, getNetWorthHistory, getComparisonWithLastMonth } = useFinanceEngine();
   const insights = getSpendingInsights();
@@ -38,7 +40,9 @@ export const DashboardScreen = ({ navigation }: any) => {
     }))
     .sort((a, b) => b.value - a.value);
 
-  const unreadAlerts = alerts.filter(a => !a.isRead).slice(0, 3);
+  const unreadAlerts = alerts
+    .filter(a => !a.isRead && !dismissedAlerts.includes(a.id))
+    .slice(0, 3);
 
   const activeGoals = goals
     .map(g => ({ ...g, progress: g.currentAmount / g.targetAmount }))
@@ -49,6 +53,10 @@ export const DashboardScreen = ({ navigation }: any) => {
     if (progress >= 0.9) return "Quase lá! A reta final!";
     if (progress >= 0.7) return "Falta pouco! Mantenha o foco!";
     return "Você está na metade do caminho! Continue assim!";
+  };
+
+  const handleDismissAlert = (id: string) => {
+    setDismissedAlerts(prev => [...prev, id]);
   };
 
   const styles = createStyles(theme);
@@ -74,7 +82,7 @@ export const DashboardScreen = ({ navigation }: any) => {
           <AlertBanner
             key={alert.id}
             alert={alert}
-            onDismiss={() => markAlertAsRead(alert.id)}
+            onDismiss={() => handleDismissAlert(alert.id)}
           />
         ))}
 
@@ -92,7 +100,7 @@ export const DashboardScreen = ({ navigation }: any) => {
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Projeção</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.warning }]}>
+              <Text style={[styles.summaryValue, { color: (theme.colors as any).warning }]}>
                 R$ {dashboardData.projection.toFixed(2)}
               </Text>
             </View>
@@ -181,11 +189,20 @@ export const DashboardScreen = ({ navigation }: any) => {
           ) : (
             dashboardData.budgetProgress.map(budget => (
               <View key={budget.category} style={styles.budgetItem}>
+                <View style={styles.budgetHeader}>
+                  <View style={styles.budgetIconContainer}>
+                    <Icon source={getCategoryIcon(budget.category)} size={24} color={getCategoryColor(budget.category)} />
+                    <Text style={styles.budgetLabel}>{getCategoryLabel(budget.category)}</Text>
+                  </View>
+                  <Text style={[styles.budgetPercentage, { color: budget.status === 'exceeded' ? theme.colors.error : theme.colors.primary }]}>
+                    {budget.percentage.toFixed(0)}%
+                  </Text>
+                </View>
                 <ProgressBar
                   value={budget.spent}
                   max={budget.limitAmount}
-                  label={getCategoryLabel(budget.category)}
-                  showPercentage
+                  showPercentage={false}
+                  color={budget.status === 'exceeded' ? theme.colors.error : budget.status === 'warning' ? (theme.colors as any).warning : theme.colors.primary}
                 />
                 <Text style={styles.budgetAmount}>
                   R$ {budget.spent.toFixed(2)} / R$ {budget.limitAmount.toFixed(2)}
@@ -301,6 +318,26 @@ const createStyles = (theme: any) =>
       ...typography.caption,
       color: theme.colors.onSurfaceVariant,
       marginTop: spacing.xs,
+    },
+    budgetHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+    },
+    budgetIconContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    budgetLabel: {
+      ...typography.body,
+      color: theme.colors.onSurface,
+      fontWeight: '500',
+    },
+    budgetPercentage: {
+      ...typography.body,
+      fontWeight: 'bold',
     },
     emptyText: {
       ...typography.body,
