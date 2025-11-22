@@ -10,8 +10,11 @@ interface FinanceState {
   goals: Goal[];
   alerts: Alert[];
   isLoading: boolean;
+  error: string | null;
+  isInitialized: boolean;
 
   initialize: () => Promise<void>;
+  retry: () => Promise<void>;
 
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>;
   updateExpense: (id: string, expense: Partial<Expense>) => Promise<void>;
@@ -51,9 +54,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   goals: [],
   alerts: [],
   isLoading: false,
+  error: null,
+  isInitialized: false,
 
   initialize: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       await db.init();
 
@@ -68,11 +73,17 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         get().loadGoals(),
         get().loadAlerts(true),
       ]);
+      set({ isInitialized: true });
     } catch (error) {
       console.error('Error initializing finance store:', error);
+      set({ error: 'Falha ao carregar dados. Verifique sua conexão.' });
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  retry: async () => {
+    await get().initialize();
   },
 
   addExpense: async (expense) => {
@@ -306,6 +317,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       goals: [],
       alerts: [],
       isLoading: false,
+      error: null,
+      isInitialized: false,
     });
   },
 }));

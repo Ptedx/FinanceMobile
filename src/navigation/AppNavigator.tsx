@@ -28,11 +28,11 @@ const TabNavigator = () => {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+        tabBarActiveTintColor: theme?.colors?.primary || '#6200ee',
+        tabBarInactiveTintColor: theme?.colors?.onSurfaceVariant || '#666666',
         tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.outline,
+          backgroundColor: theme?.colors?.surface || '#ffffff',
+          borderTopColor: theme?.colors?.outline || '#e0e0e0',
         },
         headerShown: false,
       }}
@@ -94,10 +94,13 @@ import { useFinanceStore } from '../store/financeStore';
 
 // ... imports
 
+import { LoadingScreen } from '../screens/LoadingScreen';
+import { ErrorRetryScreen } from '../screens/ErrorRetryScreen';
+
 export const AppNavigator = () => {
   const { theme, toggleTheme, isDarkMode, loadTheme } = useThemeStore();
   const { isAuthenticated, checkAuth, logout } = useAuthStore();
-  const initializeFinance = useFinanceStore(state => state.initialize);
+  const { initialize, isLoading, error, isInitialized, retry } = useFinanceStore();
 
   useEffect(() => {
     checkAuth();
@@ -105,10 +108,20 @@ export const AppNavigator = () => {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      initializeFinance();
+    if (isAuthenticated && !isInitialized) {
+      initialize();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isInitialized]);
+
+  if (isAuthenticated) {
+    if (error) {
+      return <ErrorRetryScreen error={error} onRetry={retry} />;
+    }
+
+    if (!isInitialized) {
+      return <LoadingScreen />;
+    }
+  }
 
   return (
     <NavigationContainer>

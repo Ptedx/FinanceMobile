@@ -1,346 +1,152 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView } from 'react-native';
-import { IconButton, SegmentedButtons, Chip } from 'react-native-paper';
-import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import { Card } from '../components/Card';
+import React, { useMemo } from 'react';
+import { View, StyleSheet, SectionList } from 'react-native';
+import { Text, useTheme, Icon } from 'react-native-paper';
 import { useFinanceStore } from '../store/financeStore';
-import { useThemeStore } from '../hooks/useTheme';
 import { spacing, typography } from '../theme';
-import { getCategoryColor, getCategoryLabel, getPaymentMethodLabel, getIncomeCategoryLabel } from '../constants';
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Expense, Income } from '../types';
+import { getCategoryIcon, getCategoryColor } from '../constants';
 
-type Transaction = (Expense & { type: 'expense' }) | (Income & { type: 'income' });
+export const TimelineScreen = () => {
+    const theme = useTheme();
+    const { expenses, incomes } = useFinanceStore();
 
-export const TimelineScreen = ({ navigation }: any) => {
-  const { theme } = useThemeStore();
-  const { expenses, incomes, deleteExpense, deleteIncome } = useFinanceStore();
-  const [viewMode, setViewMode] = useState<'all' | 'expenses' | 'incomes'>('all');
-  const [period, setPeriod] = useState<number | 'all'>(1);
-  const [customMonths, setCustomMonths] = useState('');
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+    const sections = useMemo(() => {
+        const allTransactions = [
+            ...expenses.map(e => ({ ...e, type: 'expense' as const })),
+            ...incomes.map(i => ({ ...i, type: 'income' as const })),
+        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const getDateRange = (p: number | 'all') => {
-    const now = new Date();
-    if (p === 'all') {
-      return { start: new Date(0), end: new Date() };
-    }
-    return { start: startOfMonth(subMonths(now, p - 1)), end: endOfMonth(now) };
-  };
+        const grouped = allTransactions.reduce((acc, transaction) => {
+            const date = parseISO(transaction.date);
+            const title = format(date, "dd 'de' MMMM, yyyy", { locale: ptBR });
 
-  const transactions = useMemo(() => {
-    const { start, end } = getDateRange(period);
+            if (!acc[title]) {
+                acc[title] = [];
+            }
+            acc[title].push(transaction);
+            return acc;
+        }, {} as Record<string, typeof allTransactions>);
 
-    let txs: Transaction[] = [];
+        return Object.entries(grouped).map(([title, data]) => ({
+            title,
+            data,
+        }));
+    }, [expenses, incomes]);
 
-    if (viewMode === 'all' || viewMode === 'expenses') {
-      txs = [...txs, ...expenses.map(e => ({ ...e, type: 'expense' as const }))];
-    }
+    const renderItem = ({ item }: { item: any }) => {
+        const isExpense = item.type === 'expense';
+        const color = isExpense ? theme.colors.error : theme.colors.success;
+        const icon = isExpense ? getCategoryIcon(item.category) : 'cash';
+        const iconColor = isExpense ? getCategoryColor(item.category) : theme.colors.success;
 
-    if (viewMode === 'all' || viewMode === 'incomes') {
-      txs = [...txs, ...incomes.map(i => ({ ...i, type: 'income' as const }))];
-    }
+        return (
+            <View style={styles.card}>
+                <View style={styles.iconContainer}>
+                    <View style={[styles.iconCircle, { backgroundColor: iconColor + '20' }]}>
+                        <Icon source={icon} size={24} color={iconColor} />
+                    </View>
+                </View>
+                <View style={styles.contentContainer}>
+                    <Text style={styles.description}>{item.description || item.category}</Text>
+                    <Text style={styles.category}>{isExpense ? 'Despesa' : 'Receita'}</Text>
+                </View>
+                <View style={styles.amountContainer}>
+                    <Text style={[styles.amount, { color }]}>
+                        {isExpense ? '-' : '+'} R$ {item.value.toFixed(2)}
+                    </Text>
+                </View>
+            </View>
+        );
+    };
 
-    return txs
-      .filter(tx => {
-        const txDate = new Date(tx.date);
-        return txDate >= start && txDate <= end;
-      })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [expenses, incomes, viewMode, period]);
-
-  const handleEdit = (transaction: Transaction) => {
-    if (transaction.type === 'expense') {
-      navigation.navigate('AddExpense', { expense: transaction });
-    } else {
-      navigation.navigate('AddIncome', { income: transaction });
-    }
-  };
-
-  const handleDelete = (transaction: Transaction) => {
-    if (transaction.type === 'expense') {
-      deleteExpense(transaction.id);
-    } else {
-      deleteIncome(transaction.id);
-    }
-    setSelectedTransaction(null);
-  };
-
-  const renderTransaction = ({ item }: { item: Transaction }) => {
-    const isExpense = item.type === 'expense';
-    const categoryLabel = isExpense
-      ? getCategoryLabel((item as Expense).category)
-      : getIncomeCategoryLabel((item as Income).category);
-    const categoryColor = isExpense
-      ? getCategoryColor((item as Expense).category)
-      : theme.colors.success;
+    const styles = createStyles(theme);
 
     return (
-      <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} variant="outlined">
-        <View style={styles.header}>
-          <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
-          <View style={styles.info}>
-            <View style={styles.titleRow}>
-              <Text style={[styles.categoryLabel, { color: theme.colors.onSurface }]}>
-                {categoryLabel}
-              </Text>
-              {isExpense ? (
-                <Icon name="arrow-down" size={16} color={theme.colors.error} />
-              ) : (
-                <Icon name="arrow-up" size={16} color={theme.colors.success} />
-              )}
-            </View>
-            <Text style={[styles.date, { color: theme.colors.onSurfaceVariant }]}>
-              {format(new Date(item.date), "d 'de' MMMM", { locale: ptBR })}
-            </Text>
-          </View>
-          <View style={styles.right}>
-            <Text
-              style={[
-                styles.value,
-                { color: isExpense ? theme.colors.error : theme.colors.success }
-              ]}
-            >
-              {isExpense ? '-' : '+'} R$ {item.value.toFixed(2)}
-            </Text>
-            <View style={styles.actions}>
-              <IconButton
-                icon="pencil-outline"
-                size={18}
-                iconColor={theme.colors.primary}
-                onPress={() => handleEdit(item)}
-              />
-              <IconButton
-                icon="delete-outline"
-                size={18}
-                iconColor={theme.colors.error}
-                onPress={() => handleDelete(item)}
-              />
-            </View>
-          </View>
+        <View style={styles.container}>
+            {sections.length === 0 ? (
+                <View style={styles.emptyState}>
+                    <Icon source="history" size={64} color={theme.colors.outline} />
+                    <Text style={styles.emptyText}>Nenhuma transação registrada.</Text>
+                </View>
+            ) : (
+                <SectionList
+                    sections={sections}
+                    renderItem={renderItem}
+                    renderSectionHeader={({ section: { title } }) => (
+                        <Text style={styles.sectionHeader}>{title}</Text>
+                    )}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={styles.listContent}
+                    stickySectionHeadersEnabled={false}
+                />
+            )}
         </View>
-
-        {item.description && (
-          <Text style={[styles.description, { color: theme.colors.onSurface }]}>
-            {item.description}
-          </Text>
-        )}
-
-        <View style={[styles.detailsRow, { borderTopColor: theme.colors.outline }]}>
-          {isExpense && (
-            <Text style={[styles.detailText, { color: theme.colors.onSurfaceVariant }]}>
-              {getPaymentMethodLabel((item as Expense).paymentMethod)}
-            </Text>
-          )}
-          {item.isRecurring && (
-            <View style={[styles.recurringBadge, { backgroundColor: theme.colors.primary + '20' }]}>
-              <Text style={[styles.recurringText, { color: theme.colors.primary }]}>
-                Recorrente
-              </Text>
-            </View>
-          )}
-        </View>
-      </Card>
     );
-  };
-
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacing.sm,
-    },
-    filters: {
-      padding: spacing.md,
-      gap: spacing.md,
-    },
-    periodContainer: {
-      gap: spacing.sm,
-    },
-    chipsContainer: {
-      gap: spacing.sm,
-      paddingRight: spacing.md,
-    },
-    chip: {
-      backgroundColor: theme.colors.surface,
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-    },
-    customInputContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.colors.surface,
-      borderWidth: 1,
-      borderRadius: 8,
-      paddingHorizontal: spacing.md,
-      height: 40,
-      width: '100%',
-    },
-    customInput: {
-      ...typography.body,
-      flex: 1,
-      padding: 0,
-    },
-    customInputLabel: {
-      ...typography.bodySmall,
-      marginLeft: spacing.xs,
-    },
-    list: {
-      padding: spacing.md,
-    },
-    card: {
-      marginBottom: spacing.md,
-      padding: spacing.md,
-    },
-    categoryDot: {
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-      marginRight: spacing.sm,
-    },
-    info: {
-      flex: 1,
-    },
-    titleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    categoryLabel: {
-      ...typography.body,
-      fontWeight: '500',
-    },
-    date: {
-      ...typography.bodySmall,
-      textTransform: 'capitalize',
-      marginTop: 2,
-    },
-    right: {
-      alignItems: 'flex-end',
-    },
-    value: {
-      ...typography.body,
-      fontWeight: '600',
-    },
-    actions: {
-      flexDirection: 'row',
-      marginTop: -8,
-    },
-    description: {
-      ...typography.bodySmall,
-      marginTop: spacing.sm,
-      marginBottom: spacing.sm,
-    },
-    detailsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      paddingTop: spacing.sm,
-      borderTopWidth: 1,
-    },
-    detailText: {
-      ...typography.caption,
-    },
-    recurringBadge: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 2,
-      borderRadius: 4,
-    },
-    recurringText: {
-      ...typography.caption,
-      fontWeight: '600',
-    },
-    empty: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: spacing.xl,
-      marginTop: spacing.xxl,
-    },
-    emptyText: {
-      ...typography.body,
-      color: theme.colors.onSurfaceVariant,
-      textAlign: 'center',
-    },
-  });
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.filters}>
-        <SegmentedButtons
-          value={viewMode}
-          onValueChange={(value) => setViewMode(value as any)}
-          buttons={[
-            { value: 'all', label: 'Todos' },
-            { value: 'expenses', label: 'Gastos' },
-            { value: 'incomes', label: 'Receitas' },
-          ]}
-        />
-
-        <View style={styles.periodContainer}>
-          <View style={[styles.customInputContainer, { borderColor: theme.colors.outline }]}>
-            <TextInput
-              value={customMonths}
-              onChangeText={(text) => {
-                setCustomMonths(text);
-                const val = parseInt(text);
-                if (!isNaN(val) && val > 0) {
-                  setPeriod(val);
-                }
-              }}
-              placeholder="Digite a quantidade de meses..."
-              placeholderTextColor={theme.colors.onSurfaceVariant}
-              keyboardType="numeric"
-              style={[styles.customInput, { color: theme.colors.onSurface }]}
-            />
-            <Text style={[styles.customInputLabel, { color: theme.colors.onSurfaceVariant }]}>meses</Text>
-          </View>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsContainer}>
-            {[1, 3, 6, 12].map((months) => (
-              <Chip
-                key={months}
-                selected={period === months}
-                onPress={() => { setPeriod(months); setCustomMonths(''); }}
-                style={[styles.chip, period === months && { backgroundColor: theme.colors.primary + '20' }]}
-                textStyle={{ color: period === months ? theme.colors.primary : theme.colors.onSurface }}
-                showSelectedOverlay
-              >
-                {months === 12 ? '1 Ano' : `${months} Meses`}
-              </Chip>
-            ))}
-            <Chip
-              selected={period === 'all'}
-              onPress={() => { setPeriod('all'); setCustomMonths(''); }}
-              style={[styles.chip, period === 'all' && { backgroundColor: theme.colors.primary + '20' }]}
-              textStyle={{ color: period === 'all' ? theme.colors.primary : theme.colors.onSurface }}
-              showSelectedOverlay
-            >
-              Tudo
-            </Chip>
-          </ScrollView>
-        </View>
-      </View>
-
-      <FlatList
-        data={transactions}
-        renderItem={renderTransaction}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>
-              Nenhuma transação encontrada no período selecionado.
-            </Text>
-          </View>
-        }
-      />
-    </View>
-  );
 };
 
+const createStyles = (theme: any) => StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    listContent: {
+        padding: spacing.md,
+    },
+    sectionHeader: {
+        ...typography.label,
+        color: theme.colors.onSurfaceVariant,
+        marginTop: spacing.md,
+        marginBottom: spacing.sm,
+        textTransform: 'uppercase',
+    },
+    card: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surface,
+        padding: spacing.md,
+        marginBottom: spacing.sm,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: theme.colors.outline,
+    },
+    iconContainer: {
+        marginRight: spacing.md,
+    },
+    iconCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    contentContainer: {
+        flex: 1,
+    },
+    description: {
+        ...typography.body,
+        fontWeight: '500',
+        color: theme.colors.onSurface,
+    },
+    category: {
+        ...typography.caption,
+        color: theme.colors.onSurfaceVariant,
+    },
+    amountContainer: {
+        alignItems: 'flex-end',
+    },
+    amount: {
+        ...typography.body,
+        fontWeight: 'bold',
+    },
+    emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    emptyText: {
+        ...typography.body,
+        color: theme.colors.onSurfaceVariant,
+    },
+});

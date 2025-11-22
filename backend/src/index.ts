@@ -500,6 +500,6 @@ app.delete('/alerts/old', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 
-app.listen(PORT, () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
 });

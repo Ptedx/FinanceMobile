@@ -1,102 +1,52 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
-import { spacing, typography, AppTheme } from '../theme';
-import { useTheme } from 'react-native-paper';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import { Text, useTheme } from 'react-native-paper';
+import { spacing, typography } from '../theme';
 
 interface ProgressBarProps {
-  value: number;
-  max: number;
-  label?: string;
-  showPercentage?: boolean;
-  color?: string;
-  height?: number;
+    value: number;
+    max: number;
+    color?: string;
+    showPercentage?: boolean;
 }
 
-export const ProgressBar: React.FC<ProgressBarProps> = ({
-  value,
-  max,
-  label,
-  showPercentage = false,
-  color,
-  height = 8,
-}) => {
-  const theme = useTheme() as AppTheme;
-  const percentage = Math.min((value / max) * 100, 100);
-  const progress = useSharedValue(0);
+export const ProgressBar = ({ value, max, color, showPercentage = true }: ProgressBarProps) => {
+    const theme = useTheme();
 
-  useEffect(() => {
-    progress.value = withSpring(percentage / 100, {
-      damping: 15,
-      stiffness: 100,
-    });
-  }, [percentage]);
+    // Handle 0/0 or invalid inputs safely
+    const safeMax = max > 0 ? max : 1;
+    const percentage = Math.min(Math.max(value / safeMax, 0), 1);
+    const barColor = color || theme.colors.primary;
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    width: `${progress.value * 100}%`,
-  }));
-
-  const getColor = () => {
-    if (color) return color;
-    if (percentage >= 100) return theme.colors.error;
-    if (percentage >= 80) return theme.colors.warning;
-    return theme.colors.success;
-  };
-
-  return (
-    <View style={styles(theme).container}>
-      {label && (
-        <View style={styles(theme).labelContainer}>
-          <Text style={styles(theme).label}>{label}</Text>
-          {showPercentage && (
-            <Text style={[styles(theme).percentage, { color: getColor() }]}>
-              {percentage.toFixed(0)}%
-            </Text>
-          )}
+    return (
+        <View style={styles.container}>
+            <View style={[styles.track, { backgroundColor: theme.colors.surfaceVariant }]}>
+                <View style={[styles.fill, { width: `${percentage * 100}%`, backgroundColor: barColor }]} />
+            </View>
+            {showPercentage && (
+                <Text style={[styles.text, { color: theme.colors.onSurfaceVariant }]}>{(percentage * 100).toFixed(0)}%</Text>
+            )}
         </View>
-      )}
-      <View style={[styles(theme).track, { height }]}>
-        <Animated.View
-          style={[
-            styles(theme).fill,
-            { backgroundColor: getColor(), height },
-            animatedStyle,
-          ]}
-        />
-      </View>
-    </View>
-  );
+    );
 };
 
-const styles = (theme: any) => StyleSheet.create({
-  container: {
-    width: '100%',
-  },
-  labelContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-  },
-  label: {
-    ...typography.bodySmall,
-    color: theme.colors.onSurface,
-    fontWeight: '500',
-  },
-  percentage: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-  },
-  track: {
-    backgroundColor: theme.colors.surfaceVariant,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  fill: {
-    borderRadius: 999,
-  },
+const styles = StyleSheet.create({
+    container: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    track: {
+        flex: 1,
+        height: 8,
+        borderRadius: 4,
+        overflow: 'hidden',
+    },
+    fill: {
+        height: '100%',
+        borderRadius: 4,
+    },
+    text: {
+        marginLeft: spacing.sm,
+        ...typography.caption,
+    },
 });

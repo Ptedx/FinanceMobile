@@ -81,25 +81,35 @@ export const useFinanceEngine = () => {
     };
   };
 
-  const getNetWorthHistory = (period: '1M' | '3M' | '6M' | '1Y' | 'ALL' = '6M') => {
+  const getNetWorthHistory = (period: '1D' | '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL' = '6M') => {
     const now = new Date();
     let startDate: Date | null = null;
 
     switch (period) {
-      case '1M': startDate = startOfMonth(addMonths(now, -1)); break; // Actually let's do rolling window? Or start of month? User asked for "1M". Usually means last 30 days. But "Timeline" usually implies context. Let's use strict date subtraction.
+      case '1D': startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000); break;
+      case '7D': startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
+      case '1M': startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30); break;
       case '3M': startDate = addMonths(now, -3); break;
       case '6M': startDate = addMonths(now, -6); break;
       case '1Y': startDate = addMonths(now, -12); break;
       case 'ALL': startDate = null; break;
     }
 
-    // Override 1M to be simpler: Last 30 days
-    if (period === '1M') startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
-
     const allTransactions = [
       ...expenses.map(e => ({ date: new Date(e.date), value: -e.value })),
       ...incomes.map(i => ({ date: new Date(i.date), value: i.value }))
     ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // If the calculated start date is before the first transaction, 
+    // we should start from the first transaction instead of showing empty space.
+    let isClamped = false;
+    if (allTransactions.length > 0 && startDate) {
+      const firstTransactionDate = allTransactions[0].date;
+      if (startDate < firstTransactionDate) {
+        startDate = null;
+        isClamped = true;
+      }
+    }
 
     let currentBalance = 0;
 
@@ -118,14 +128,17 @@ export const useFinanceEngine = () => {
     // Add initial point
     if (startDate) {
       history.push({ date: startDate, value: currentBalance });
-    } else if (periodTransactions.length > 0) {
-      // For ALL, start with 0 or first transaction? 
-      // If we start with 0 at first transaction date, it looks weird if the first transaction is large.
-      // Let's just start processing.
+    } else if (isClamped && periodTransactions.length > 0) {
+      // If we clamped the start date (showing full history), add a point just before 
+      // the first transaction to represent the starting state (e.g., 0).
+      // This ensures the "Growth" calculation considers the starting balance.
+      history.push({ date: new Date(periodTransactions[0].date.getTime() - 60000), value: currentBalance });
     }
 
-    if (period === '1M') {
-      // Daily granularity - keep every transaction for detail
+    // Use high granularity if the period is short OR if we have few data points
+    // This prevents "flat lines" when viewing long periods with sparse data
+    if (period === '1D' || period === '7D' || period === '1M' || periodTransactions.length < 50) {
+      // High granularity - keep every transaction
       periodTransactions.forEach(t => {
         currentBalance += t.value;
         history.push({ date: t.date, value: currentBalance });
@@ -141,8 +154,6 @@ export const useFinanceEngine = () => {
       });
 
       groupedByMonth.forEach((value, key) => {
-        // Use the 15th of the month to center the point or end of month? 
-        // Let's use the 1st for simplicity in parsing, but visually it represents the month end state.
         history.push({
           date: new Date(key + '-01'),
           value
@@ -150,7 +161,7 @@ export const useFinanceEngine = () => {
       });
     }
 
-    // Add final point (today) to ensure chart goes to the end
+    // Add final point (today)
     history.push({ date: now, value: currentBalance });
 
     // If no data, return flat line

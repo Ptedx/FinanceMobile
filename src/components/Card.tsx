@@ -1,57 +1,28 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
-import { spacing, shadows } from '../theme';
+import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { useTheme } from 'react-native-paper';
+import { spacing, shadows } from '../theme';
 
 interface CardProps {
-  children: React.ReactNode;
-  style?: ViewStyle;
-  onPress?: () => void;
-  variant?: 'elevated' | 'outlined' | 'flat';
+    children: React.ReactNode;
+    style?: StyleProp<ViewStyle>;
 }
 
-export const Card: React.FC<CardProps> = ({ 
-  children, 
-  style, 
-  onPress,
-  variant = 'elevated' 
-}) => {
-  const theme = useTheme();
-  const cardStyle = [
-    styles(theme).card,
-    variant === 'elevated' && shadows.md,
-    variant === 'outlined' && styles(theme).outlined,
-    variant === 'flat' && styles(theme).flat,
-    style,
-  ];
-
-  if (onPress) {
+export const Card = ({ children, style }: CardProps) => {
+    const theme = useTheme();
     return (
-      <TouchableOpacity 
-        style={cardStyle} 
-        onPress={onPress}
-        activeOpacity={0.7}
-      >
-        {children}
-      </TouchableOpacity>
+        <View style={[styles(theme).card, style]}>
+            {children}
+        </View>
     );
-  }
-
-  return <View style={cardStyle}>{children}</View>;
 };
 
-const styles = (theme: any) =>
-  StyleSheet.create({
+const styles = (theme: any) => StyleSheet.create({
     card: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.roundness,
-      padding: spacing.md,
+        backgroundColor: theme.colors.surface,
+        borderRadius: 16,
+        padding: spacing.md,
+        ...shadows.sm,
+        elevation: 2, // Ensure shadow on Android
     },
-    outlined: {
-      borderWidth: 1,
-      borderColor: theme.colors.outline,
-    },
-    flat: {
-      backgroundColor: 'transparent',
-    },
-  });
+});

@@ -15,15 +15,27 @@ import { getCategoryColor, getCategoryLabel, getCategoryIcon } from '../constant
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { LoadingScreen } from './LoadingScreen';
+import { ErrorRetryScreen } from './ErrorRetryScreen';
+
 export const DashboardScreen = ({ navigation }: any) => {
   const theme = useTheme();
   const { user } = useAuthStore();
-  const { alerts, markAlertAsRead, goals } = useFinanceStore();
-  const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('6M');
+  const { alerts, markAlertAsRead, goals, isLoading, error, retry } = useFinanceStore();
+  const [selectedPeriod, setSelectedPeriod] = useState<'1D' | '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('1M');
 
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
   const { dashboardData, getSpendingInsights, getNetWorthHistory, getComparisonWithLastMonth } = useFinanceEngine();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (error) {
+    return <ErrorRetryScreen error={error} onRetry={retry} />;
+  }
+
   const insights = getSpendingInsights();
   const comparison = getComparisonWithLastMonth();
   const netWorthHistory = getNetWorthHistory(selectedPeriod);
@@ -127,13 +139,38 @@ export const DashboardScreen = ({ navigation }: any) => {
         </Card>
 
         <Card style={styles.chartCard}>
-          <Text style={styles.cardTitle}>Crescimento Patrimonial</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+            <View>
+              <Text style={{ ...typography.h3, color: theme.colors.onSurface }}>Crescimento Patrimonial</Text>
+              {netWorthHistory.length > 1 && (
+                (() => {
+                  const startValue = netWorthHistory[0].value;
+                  const endValue = netWorthHistory[netWorthHistory.length - 1].value;
+                  const diff = endValue - startValue;
+                  const percentage = startValue !== 0 ? (diff / Math.abs(startValue)) * 100 : (diff > 0 ? 100 : 0);
+                  const isPositive = diff >= 0;
+
+                  return (
+                    <Text style={{
+                      ...typography.bodySmall,
+                      color: isPositive ? theme.colors.success : theme.colors.error,
+                      fontWeight: 'bold'
+                    }}>
+                      {isPositive ? '+' : ''}R$ {diff.toFixed(2)} ({isPositive ? '+' : ''}{percentage.toFixed(1)}%)
+                    </Text>
+                  );
+                })()
+              )}
+            </View>
+          </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>
             <SegmentedButtons
               value={selectedPeriod}
               onValueChange={value => setSelectedPeriod(value as any)}
               buttons={[
+                { value: '1D', label: '1D' },
+                { value: '7D', label: '7D' },
                 { value: '1M', label: '1M' },
                 { value: '3M', label: '3M' },
                 { value: '6M', label: '6M' },
@@ -145,7 +182,9 @@ export const DashboardScreen = ({ navigation }: any) => {
             />
           </ScrollView>
 
-          <NetWorthChart data={netWorthHistory} period={selectedPeriod} />
+          {/* {netWorthHistory.length > 1 && !netWorthHistory.some(d => isNaN(d.value) || isNaN(d.date.getTime())) && (
+            <NetWorthChart data={netWorthHistory} period={selectedPeriod} />
+          )} */}
         </Card>
 
         {activeGoals.length > 0 && (

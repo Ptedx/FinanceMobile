@@ -1,103 +1,131 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList } from 'react-native';
-import { useTheme } from 'react-native-paper';
-import { AlertBanner } from '../components/AlertBanner';
+import React from 'react';
+import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { Text, useTheme, Icon, IconButton } from 'react-native-paper';
 import { useFinanceStore } from '../store/financeStore';
 import { spacing, typography } from '../theme';
-import { Alert } from '../types';
-import { format, isToday, isYesterday, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export const AlertsScreen = () => {
-  const { alerts, markAlertAsRead } = useFinanceStore();
-  const theme = useTheme();
+    const theme = useTheme();
+    const { alerts, markAlertAsRead } = useFinanceStore();
 
-  const activeAlerts = alerts.filter(a => !a.isRead);
+    const handleMarkAsRead = async (id: string) => {
+        await markAlertAsRead(id);
+    };
 
-  const sections = useMemo(() => {
-    const groups: { [key: string]: Alert[] } = {};
+    const renderItem = ({ item }: { item: any }) => {
+        const isRead = item.isRead;
 
-    activeAlerts.forEach(alert => {
-      const date = parseISO(alert.createdAt);
-      let title = format(date, "d 'de' MMMM", { locale: ptBR });
+        let icon = 'bell-outline';
+        let color = theme.colors.primary;
 
-      if (isToday(date)) {
-        title = 'Hoje';
-      } else if (isYesterday(date)) {
-        title = 'Ontem';
-      }
-
-      if (!groups[title]) {
-        groups[title] = [];
-      }
-      groups[title].push(alert);
-    });
-
-    return Object.entries(groups).map(([title, data]) => ({
-      title,
-      data: data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    }));
-  }, [activeAlerts]);
-
-  const renderAlert = ({ item }: { item: Alert }) => (
-    <AlertBanner
-      alert={item}
-      onDismiss={() => markAlertAsRead(item.id)}
-    />
-  );
-
-  const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => (
-    <Text style={[styles.sectionHeader, { color: theme.colors.onSurfaceVariant }]}>
-      {title}
-    </Text>
-  );
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <SectionList
-        sections={sections}
-        renderItem={renderAlert}
-        renderSectionHeader={renderSectionHeader}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.list}
-        stickySectionHeadersEnabled={false}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
-              Nenhum alerta no momento.{'\n'}
-              Você receberá alertas quando seus gastos se aproximarem dos limites.
-            </Text>
-          </View>
+        if (item.type === 'budget_exceeded') {
+            icon = 'alert-circle';
+            color = theme.colors.error;
+        } else if (item.type === 'budget_warning') {
+            icon = 'alert';
+            color = (theme.colors as any).warning || '#ED6C02';
+        } else if (item.type === 'goal_reached') {
+            icon = 'trophy';
+            color = (theme.colors as any).success || '#2E7D32';
         }
-      />
-    </View>
-  );
+
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.card,
+                    {
+                        backgroundColor: isRead ? theme.colors.surface : theme.colors.surfaceVariant,
+                        borderColor: isRead ? theme.colors.outline : theme.colors.primary,
+                        borderWidth: isRead ? 0 : 1,
+                    }
+                ]}
+                onPress={() => handleMarkAsRead(item.id)}
+            >
+                <View style={styles.iconContainer}>
+                    <Icon source={icon} size={24} color={color} />
+                </View>
+                <View style={styles.contentContainer}>
+                    <Text style={[styles.message, { fontWeight: isRead ? '400' : '700' }]}>
+                        {item.message}
+                    </Text>
+                    <Text style={styles.date}>
+                        {item.createdAt ? format(parseISO(item.createdAt), "dd 'de' MMMM, HH:mm", { locale: ptBR }) : ''}
+                    </Text>
+                </View>
+                {!isRead && (
+                    <IconButton
+                        icon="check"
+                        size={20}
+                        onPress={() => handleMarkAsRead(item.id)}
+                        iconColor={theme.colors.primary}
+                    />
+                )}
+            </TouchableOpacity>
+        );
+    };
+
+    const styles = createStyles(theme);
+
+    return (
+        <View style={styles.container}>
+            {alerts.length === 0 ? (
+                <View style={styles.emptyState}>
+                    <Icon source="bell-sleep" size={64} color={theme.colors.outline} />
+                    <Text style={styles.emptyText}>Sem novos alertas</Text>
+                </View>
+            ) : (
+                <FlatList
+                    data={alerts}
+                    renderItem={renderItem}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={styles.listContent}
+                />
+            )}
+        </View>
+    );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  list: {
-    padding: spacing.md,
-  },
-  sectionHeader: {
-    ...typography.label,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-    textTransform: 'uppercase',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  empty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-    marginTop: spacing.xxl,
-  },
-  emptyText: {
-    ...typography.body,
-    textAlign: 'center',
-  },
+const createStyles = (theme: any) => StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
+    },
+    listContent: {
+        padding: spacing.md,
+    },
+    card: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.md,
+        marginBottom: spacing.sm,
+        borderRadius: 12,
+        elevation: 1,
+    },
+    iconContainer: {
+        marginRight: spacing.md,
+    },
+    contentContainer: {
+        flex: 1,
+    },
+    message: {
+        ...typography.body,
+        color: theme.colors.onSurface,
+        marginBottom: 4,
+    },
+    date: {
+        ...typography.caption,
+        color: theme.colors.onSurfaceVariant,
+    },
+    emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    emptyText: {
+        ...typography.body,
+        color: theme.colors.onSurfaceVariant,
+    },
 });

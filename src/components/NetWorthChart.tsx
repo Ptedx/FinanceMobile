@@ -1,67 +1,63 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
-import { VictoryChart, VictoryLine, VictoryTheme, VictoryAxis, VictoryArea, VictoryScatter, VictoryTooltip, VictoryVoronoiContainer } from 'victory-native';
-import { useTheme } from 'react-native-paper';
+import { View, Dimensions, StyleSheet } from 'react-native';
+import { Text, useTheme } from 'react-native-paper';
+import { VictoryChart, VictoryLine, VictoryArea, VictoryAxis, VictoryTheme } from 'victory-native';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { spacing, typography } from '../theme';
 
-interface NetWorthChartProps {
-    data: { date: Date; value: number }[];
-    period: '1M' | '3M' | '6M' | '1Y' | 'ALL';
+interface NetWorthData {
+    date: Date;
+    value: number;
 }
 
-export const NetWorthChart: React.FC<NetWorthChartProps> = ({ data, period }) => {
+interface NetWorthChartProps {
+    data: NetWorthData[];
+    period: string;
+}
+
+export const NetWorthChart = ({ data, period }: NetWorthChartProps) => {
     const theme = useTheme();
-    const width = Dimensions.get('window').width - spacing.md * 2;
+    const width = Dimensions.get('window').width - spacing.xl * 2;
     const height = 220;
 
-    // Ensure data is sorted
-    const sortedData = [...data].sort((a, b) => a.date.getTime() - b.date.getTime());
+    if (!data || data.length === 0) {
+        return (
+            <View style={[styles.container, { height, justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ color: theme.colors.onSurfaceVariant }}>Sem dados suficientes para o gráfico</Text>
+            </View>
+        );
+    }
 
-    const getTickFormat = (x: any) => {
-        const date = new Date(x);
-        if (period === '1M') {
-            return format(date, 'dd/MM', { locale: ptBR });
-        }
-        return format(date, 'MMM', { locale: ptBR });
-    };
+    // Ensure data is sorted and valid
+    const chartData = data
+        .filter(d => !isNaN(d.value) && d.date instanceof Date && !isNaN(d.date.getTime()))
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    if (chartData.length < 2) {
+        return (
+            <View style={[styles.container, { height, justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ color: theme.colors.onSurfaceVariant }}>Dados insuficientes para exibir o gráfico</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
             <VictoryChart
                 width={width}
                 height={height}
+                theme={VictoryTheme.material}
                 padding={{ top: 20, bottom: 40, left: 50, right: 20 }}
-                containerComponent={
-                    <VictoryVoronoiContainer
-                        voronoiDimension="x"
-                        voronoiBlacklist={['area']}
-                        labels={({ datum }) => `R$ ${datum.value.toFixed(2)}`}
-                        labelComponent={
-                            <VictoryTooltip
-                                renderInPortal={false}
-                                constrainToVisibleArea
-                                flyoutStyle={{
-                                    fill: theme.colors.surface,
-                                    stroke: theme.colors.outline,
-                                    strokeWidth: 1,
-                                    borderRadius: 5
-                                }}
-                                style={{
-                                    fill: theme.colors.onSurface,
-                                    fontSize: 12,
-                                    fontWeight: 'bold'
-                                }}
-                            />
-                        }
-                    />
-                }
             >
                 <VictoryAxis
-                    tickFormat={getTickFormat}
-                    // Reduce tick count for 1M to avoid crowding if daily
-                    tickCount={period === '1M' ? 5 : undefined}
+                    tickFormat={(t) => {
+                        const date = new Date(t);
+                        if (period === '1D' || period === '7D') {
+                            return format(date, 'dd/MM', { locale: ptBR });
+                        }
+                        return format(date, 'MMM', { locale: ptBR });
+                    }}
                     style={{
                         axis: { stroke: theme.colors.outline },
                         tickLabels: { fill: theme.colors.onSurfaceVariant, fontSize: 10, padding: 5 },
@@ -70,40 +66,37 @@ export const NetWorthChart: React.FC<NetWorthChartProps> = ({ data, period }) =>
                 />
                 <VictoryAxis
                     dependentAxis
-                    tickFormat={(y) => `R$${(y / 1000).toFixed(0)}k`}
+                    tickFormat={(t) => `R$${(t / 1000).toFixed(1)}k`}
                     style={{
                         axis: { stroke: 'transparent' },
                         tickLabels: { fill: theme.colors.onSurfaceVariant, fontSize: 10, padding: 5 },
-                        grid: { stroke: theme.colors.surfaceVariant, strokeDasharray: '4, 4' }
+                        grid: { stroke: theme.colors.outline, strokeDasharray: '4, 4', strokeWidth: 0.5 }
                     }}
                 />
                 <VictoryArea
-                    name="area"
-                    data={sortedData}
+                    data={chartData}
                     x="date"
                     y="value"
                     style={{
                         data: {
-                            fill: theme.colors.primary + '20', // 20% opacity
+                            fill: theme.colors.primary,
+                            fillOpacity: 0.1,
+                            stroke: 'none'
+                        }
+                    }}
+                    interpolation="monotoneX"
+                />
+                <VictoryLine
+                    data={chartData}
+                    x="date"
+                    y="value"
+                    style={{
+                        data: {
                             stroke: theme.colors.primary,
                             strokeWidth: 2
                         }
                     }}
                     interpolation="monotoneX"
-                />
-                <VictoryScatter
-                    name="scatter"
-                    data={sortedData}
-                    x="date"
-                    y="value"
-                    size={5}
-                    style={{
-                        data: {
-                            fill: theme.colors.surface,
-                            stroke: theme.colors.primary,
-                            strokeWidth: 2
-                        }
-                    }}
                 />
             </VictoryChart>
         </View>
@@ -114,6 +107,6 @@ const styles = StyleSheet.create({
     container: {
         alignItems: 'center',
         justifyContent: 'center',
-        marginLeft: -spacing.md, // Compensate for chart padding
+        marginVertical: spacing.md,
     },
 });
