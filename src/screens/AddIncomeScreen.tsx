@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
-import { TextInput, Button, IconButton, Chip } from 'react-native-paper';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { TextInput, Button, IconButton } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,7 +11,6 @@ import { spacing, typography } from '../theme';
 import { INCOME_CATEGORIES } from '../constants';
 import { IncomeCategory, GoalAllocation } from '../types';
 import { formatCurrency, parseCurrency } from '../utils/formatters';
-
 
 const incomeSchema = z.object({
   value: z.string().min(1, 'Valor é obrigatório'),
@@ -24,7 +23,7 @@ type IncomeFormData = z.infer<typeof incomeSchema>;
 
 export const AddIncomeScreen = ({ navigation, route }: any) => {
   const { theme } = useThemeStore();
-  const { addIncome, updateIncome, goals } = useFinanceStore();
+  const { addIncome, updateIncome, deleteIncome, goals } = useFinanceStore();
   const [date, setDate] = useState(new Date());
   const [goalAllocations, setGoalAllocations] = useState<GoalAllocation[]>([]);
   const [showGoalAllocation, setShowGoalAllocation] = useState(false);
@@ -32,7 +31,7 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
   const incomeToEdit = route.params?.income;
   const isEditing = !!incomeToEdit;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isEditing) {
       navigation.setOptions({
         title: `Editar receita ${incomeToEdit.description || incomeToEdit.category}`
@@ -85,9 +84,49 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
     return goalAllocations.find(a => a.goalId === goalId)?.amount || 0;
   };
 
-  const activeGoals = useMemo(() => goals.filter(g => g.status === 'active'), [goals]);
+  const activeGoals = useMemo(() => goals.filter(g => g.currentAmount < g.targetAmount), [goals]);
   const totalAllocated = goalAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
   const remainingAmount = parsedValue - totalAllocated;
+
+  const handleDelete = async () => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm("Tem certeza que deseja excluir esta receita?");
+      if (confirmed) {
+        try {
+          if (incomeToEdit) {
+            await deleteIncome(incomeToEdit.id);
+            navigation.goBack();
+          }
+        } catch (error) {
+          console.error("Erro ao excluir receita:", error);
+          alert("Não foi possível excluir a receita.");
+        }
+      }
+    } else {
+      Alert.alert(
+        "Excluir Receita",
+        "Tem certeza que deseja excluir esta receita?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Excluir",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                if (incomeToEdit) {
+                  await deleteIncome(incomeToEdit.id);
+                  navigation.goBack();
+                }
+              } catch (error) {
+                console.error("Erro ao excluir receita:", error);
+                Alert.alert("Erro", "Não foi possível excluir a receita.");
+              }
+            }
+          }
+        ]
+      );
+    }
+  };
 
   const onSubmit = async (data: IncomeFormData) => {
     const income = {
@@ -229,6 +268,10 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
     },
     submitButtonContent: {
       paddingVertical: spacing.sm,
+    },
+    deleteButton: {
+      marginTop: spacing.sm,
+      borderColor: theme.colors.error,
     },
   });
 
@@ -405,9 +448,19 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
         >
           {isEditing ? 'Salvar Alterações' : 'Adicionar Receita'}
         </Button>
+
+        {isEditing && (
+          <Button
+            mode="outlined"
+            onPress={handleDelete}
+            style={styles.deleteButton}
+            textColor={theme.colors.error}
+            icon="delete"
+          >
+            Excluir Receita
+          </Button>
+        )}
       </ScrollView>
-    </KeyboardAvoidingView >
+    </KeyboardAvoidingView>
   );
 };
-
-

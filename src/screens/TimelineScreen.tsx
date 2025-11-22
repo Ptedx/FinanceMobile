@@ -13,7 +13,7 @@ import { formatCurrency } from '../utils/formatters';
 export const TimelineScreen = () => {
     const theme = useTheme();
     const navigation = useNavigation();
-    const { expenses, incomes } = useFinanceStore();
+    const { expenses, incomes, deleteExpense, deleteIncome } = useFinanceStore();
 
     const sections = useMemo(() => {
         const allTransactions = [

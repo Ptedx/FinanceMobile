@@ -102,16 +102,6 @@ export const AddGoalSheet: React.FC<AddGoalSheetProps> = ({
                             </View>
 
                             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                                <Text style={styles.label}>Tipo de Meta</Text>
-                                <SegmentedButtons
-                                    value={type}
-                                    onValueChange={value => setType(value as 'save' | 'spend_limit')}
-                                    buttons={[
-                                        { value: 'save', label: 'Economizar' },
-                                        { value: 'spend_limit', label: 'Limite de Gastos' },
-                                    ]}
-                                    style={styles.input}
-                                />
 
                                 <Text style={styles.label}>Título</Text>
                                 <TextInput

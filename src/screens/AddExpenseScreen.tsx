@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { TextInput, Button, SegmentedButtons, IconButton, useTheme } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,7 +24,7 @@ type ExpenseFormData = z.infer<typeof expenseSchema>;
 
 export const AddExpenseScreen = ({ navigation, route }: any) => {
   const theme = useTheme();
-  const { addExpense, updateExpense } = useFinanceStore();
+  const { addExpense, updateExpense, deleteExpense } = useFinanceStore();
   const [date, setDate] = useState(new Date());
 
   const expenseToEdit = route.params?.expense;
@@ -56,6 +56,46 @@ export const AddExpenseScreen = ({ navigation, route }: any) => {
       isRecurring: expenseToEdit?.isRecurring || false,
     },
   });
+
+  const handleDelete = async () => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm("Tem certeza que deseja excluir este gasto?");
+      if (confirmed) {
+        try {
+          if (expenseToEdit) {
+            await deleteExpense(expenseToEdit.id);
+            navigation.goBack();
+          }
+        } catch (error) {
+          console.error("Erro ao excluir gasto:", error);
+          alert("Não foi possível excluir o gasto.");
+        }
+      }
+    } else {
+      Alert.alert(
+        "Excluir Gasto",
+        "Tem certeza que deseja excluir este gasto?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Excluir",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                if (expenseToEdit) {
+                  await deleteExpense(expenseToEdit.id);
+                  navigation.goBack();
+                }
+              } catch (error) {
+                console.error("Erro ao excluir gasto:", error);
+                Alert.alert("Erro", "Não foi possível excluir o gasto.");
+              }
+            }
+          }
+        ]
+      );
+    }
+  };
 
   const onSubmit = async (data: ExpenseFormData) => {
     const expenseData = {
@@ -225,6 +265,18 @@ export const AddExpenseScreen = ({ navigation, route }: any) => {
         >
           {isEditing ? 'Salvar Alterações' : 'Adicionar Gasto'}
         </Button>
+
+        {isEditing && (
+          <Button
+            mode="outlined"
+            onPress={handleDelete}
+            style={styles.deleteButton}
+            textColor={theme.colors.error}
+            icon="delete"
+          >
+            Excluir Gasto
+          </Button>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -322,5 +374,8 @@ const createStyles = (theme: any) => StyleSheet.create({
   submitButtonContent: {
     paddingVertical: spacing.sm,
   },
+  deleteButton: {
+    marginTop: spacing.sm,
+    borderColor: theme.colors.error,
+  },
 });
-
