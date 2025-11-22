@@ -182,9 +182,9 @@ export const DashboardScreen = ({ navigation }: any) => {
             />
           </ScrollView>
 
-          {/* {netWorthHistory.length > 1 && !netWorthHistory.some(d => isNaN(d.value) || isNaN(d.date.getTime())) && (
+          {netWorthHistory.length > 1 && !netWorthHistory.some(d => isNaN(d.value) || isNaN(d.date.getTime())) && (
             <NetWorthChart data={netWorthHistory} period={selectedPeriod} />
-          )} */}
+          )}
         </Card>
 
         {activeGoals.length > 0 && (
