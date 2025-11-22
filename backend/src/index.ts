@@ -388,11 +388,11 @@ app.post('/budgets', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.put('/budgets/:id', authMiddleware, async (req: AuthRequest, res) => {
-    const { limitAmount, isRecurring } = req.body;
+    const { limitAmount, isRecurring, category } = req.body;
     try {
         const budget = await prisma.budget.update({
             where: { id: req.params.id, userId: req.user!.userId },
-            data: { limitAmount, isRecurring }
+            data: { limitAmount, isRecurring, category }
         });
         res.json(budget);
     } catch (error) {
@@ -410,7 +410,6 @@ app.delete('/budgets/:id', authMiddleware, async (req: AuthRequest, res) => {
         res.status(500).json({ error: 'Error deleting budget' });
     }
 });
-
 // Goals
 app.get('/goals', authMiddleware, async (req: AuthRequest, res) => {
     const goals = await prisma.goal.findMany({ where: { userId: req.user!.userId } });
@@ -418,35 +417,67 @@ app.get('/goals', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.post('/goals', authMiddleware, async (req: AuthRequest, res) => {
-    const { title, targetAmount, currentAmount, targetDate, type, category } = req.body as GoalRequest;
-    const goal = await prisma.goal.create({
-        data: {
-            title,
-            targetAmount,
-            currentAmount,
-            targetDate: new Date(targetDate),
-            type,
-            category,
-            userId: req.user!.userId,
-        },
-    });
-    res.json(goal);
+    try {
+        const { title, targetAmount, currentAmount, targetDate, type, category } = req.body as GoalRequest;
+
+        // If targetDate is not provided or empty, default to 1 year from now
+        let finalTargetDate = targetDate ? new Date(targetDate) : undefined;
+        if (!finalTargetDate || isNaN(finalTargetDate.getTime())) {
+            const date = new Date();
+            date.setFullYear(date.getFullYear() + 1);
+            finalTargetDate = date;
+        }
+
+        const goal = await prisma.goal.create({
+            data: {
+                title,
+                targetAmount,
+                currentAmount: currentAmount || 0,
+                targetDate: finalTargetDate,
+                type,
+                category,
+                userId: req.user!.userId,
+            },
+        });
+        res.json(goal);
+    } catch (error: any) {
+        console.error('Create Goal Error:', error);
+        res.status(500).json({ error: 'Error creating goal', details: error.message });
+    }
 });
 
 app.put('/goals/:id', authMiddleware, async (req: AuthRequest, res) => {
-    const { currentAmount } = req.body;
-    const goal = await prisma.goal.updateMany({
-        where: { id: req.params.id, userId: req.user!.userId },
-        data: { currentAmount },
-    });
-    res.json(goal);
+    try {
+        const { title, targetAmount, currentAmount, targetDate, type, category } = req.body;
+
+        const goal = await prisma.goal.update({
+            where: { id: req.params.id, userId: req.user!.userId },
+            data: {
+                title,
+                targetAmount,
+                currentAmount,
+                targetDate: targetDate ? new Date(targetDate) : undefined,
+                type,
+                category
+            },
+        });
+        res.json(goal);
+    } catch (error: any) {
+        console.error('Update Goal Error:', error);
+        res.status(500).json({ error: 'Error updating goal', details: error.message });
+    }
 });
 
 app.delete('/goals/:id', authMiddleware, async (req: AuthRequest, res) => {
-    await prisma.goal.deleteMany({
-        where: { id: req.params.id, userId: req.user!.userId },
-    });
-    res.json({ success: true });
+    try {
+        await prisma.goal.delete({
+            where: { id: req.params.id, userId: req.user!.userId },
+        });
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error('Delete Goal Error:', error);
+        res.status(500).json({ error: 'Error deleting goal', details: error.message });
+    }
 });
 
 // Alerts

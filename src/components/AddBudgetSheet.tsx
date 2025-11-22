@@ -35,13 +35,19 @@ export const AddBudgetSheet = ({ visible, onClose, onSave, initialBudget, onDele
     }, [visible, initialBudget]);
 
     const handleSave = async () => {
-        if (!amount || isNaN(Number(amount))) return;
+        // Replace comma with dot for valid number parsing
+        const normalizedAmount = amount.replace(',', '.');
+
+        if (!amount || isNaN(Number(normalizedAmount))) {
+            // Optional: Add an alert here if needed, but for now just return
+            return;
+        }
 
         setLoading(true);
         try {
             await onSave({
                 category,
-                limitAmount: Number(amount),
+                limitAmount: Number(normalizedAmount),
                 month: new Date().toISOString().slice(0, 7), // Current month YYYY-MM
                 isRecurring,
             });

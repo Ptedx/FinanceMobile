@@ -62,7 +62,10 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
   });
 
   const incomeValue = watch('value');
-  const parsedValue = parseFloat(incomeValue?.replace(',', '.') || '0');
+  // Parse "R$ 1.234,56" -> 1234.56
+  const parsedValue = incomeValue
+    ? parseFloat(incomeValue.replace(/[^\d,]/g, '').replace(',', '.') || '0')
+    : 0;
 
   const allocatedTotal = goalAllocations.reduce((sum, alloc) => sum + alloc.amount, 0);
   const remainingAmount = parsedValue - allocatedTotal;
@@ -247,10 +250,22 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
             render={({ field: { onChange, value } }) => (
               <TextInput
                 mode="outlined"
-                label="R$"
+                label="Valor"
                 value={value}
-                onChangeText={onChange}
-                keyboardType="decimal-pad"
+                onChangeText={(text) => {
+                  // Remove non-numeric characters
+                  const numericValue = text.replace(/\D/g, '');
+
+                  // Format as currency (R$ 0,00)
+                  const amount = Number(numericValue) / 100;
+                  const formatted = amount.toLocaleString('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                  });
+
+                  onChange(formatted);
+                }}
+                keyboardType="numeric"
                 error={!!errors.value}
                 style={styles.input}
                 outlineColor={theme.colors.outline}

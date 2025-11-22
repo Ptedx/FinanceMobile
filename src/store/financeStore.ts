@@ -33,7 +33,7 @@ interface FinanceState {
 
   addGoal: (goal: Omit<Goal, 'id' | 'createdAt'>) => Promise<void>;
   loadGoals: () => Promise<void>;
-  updateGoal: (id: string, currentAmount: number) => Promise<void>;
+  updateGoal: (id: string, goal: Partial<Goal>) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
 
   addAlert: (alert: Omit<Alert, 'id' | 'createdAt'>) => Promise<void>;
@@ -125,7 +125,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         if (goal.currentAmount >= goal.targetAmount) continue; // skip completed
 
         const nextAmount = Math.min(goal.targetAmount, (goal.currentAmount || 0) + (alloc.amount || 0));
-        await db.updateGoal(goal.id, nextAmount);
+        await db.updateGoal(goal.id, { currentAmount: nextAmount });
         set(state => ({
           goals: state.goals.map(g => g.id === goal.id ? { ...g, currentAmount: nextAmount } : g),
         }));
@@ -147,7 +147,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         const goal = goals.find(g => g.id === alloc.goalId);
         if (goal) {
           const newAmount = Math.max(0, goal.currentAmount - alloc.amount);
-          await db.updateGoal(goal.id, newAmount);
+          await db.updateGoal(goal.id, { currentAmount: newAmount });
           // Update local state immediately to reflect changes for next steps
           set(state => ({
             goals: state.goals.map(g => g.id === goal.id ? { ...g, currentAmount: newAmount } : g)
@@ -162,7 +162,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         const goal = currentGoals.find(g => g.id === alloc.goalId);
         if (goal) {
           const newAmount = Math.min(goal.targetAmount, goal.currentAmount + alloc.amount);
-          await db.updateGoal(goal.id, newAmount);
+          await db.updateGoal(goal.id, { currentAmount: newAmount });
           set(state => ({
             goals: state.goals.map(g => g.id === goal.id ? { ...g, currentAmount: newAmount } : g)
           }));
@@ -224,10 +224,10 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     set({ goals });
   },
 
-  updateGoal: async (id, currentAmount) => {
-    await db.updateGoal(id, currentAmount);
+  updateGoal: async (id, goal) => {
+    await db.updateGoal(id, goal);
     set(state => ({
-      goals: state.goals.map(g => g.id === id ? { ...g, currentAmount } : g),
+      goals: state.goals.map(g => g.id === id ? { ...g, ...goal } : g),
     }));
   },
 

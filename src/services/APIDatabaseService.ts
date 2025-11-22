@@ -126,10 +126,10 @@ export class APIDatabaseService implements IDatabaseService {
         return fetchWithAuth('/goals');
     }
 
-    async updateGoal(id: string, currentAmount: number): Promise<void> {
+    async updateGoal(id: string, goal: Partial<Goal>): Promise<void> {
         return fetchWithAuth(`/goals/${id}`, {
             method: 'PUT',
-            body: JSON.stringify({ currentAmount }),
+            body: JSON.stringify(goal),
         });
     }
 

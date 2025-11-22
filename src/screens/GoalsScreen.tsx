@@ -24,17 +24,11 @@ export const GoalsScreen = () => {
 
     const handleSave = async (goalData: Omit<Goal, 'id' | 'createdAt'>) => {
         if (selectedGoal) {
-            // For update, we only update metadata, currentAmount is handled via income allocation usually,
-            // but here we might want to allow editing it? The store updateGoal only takes id and currentAmount.
-            // Wait, the store interface for updateGoal is `updateGoal: (id: string, currentAmount: number) => Promise<void>;`
-            // This seems limited. Let's assume for now we can't fully edit goal metadata via store yet, 
-            // OR we need to update the store to support full goal updates.
-            // For now, let's just update the currentAmount if changed, or we might need to extend the store.
-            // Given the constraints, I'll just close the sheet.
-            // TODO: Extend store to support full goal editing.
-            console.warn('Full goal editing not yet supported in store');
+            await updateGoal(selectedGoal.id, goalData);
+            setSheetVisible(false);
         } else {
             await addGoal(goalData);
+            setSheetVisible(false);
         }
     };
 

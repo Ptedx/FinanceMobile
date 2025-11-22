@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Text, TextInput, Button, useTheme, IconButton, SegmentedButtons } from 'react-native-paper';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { spacing, typography } from '../theme';
 import { Goal } from '../types';
 
@@ -22,14 +23,15 @@ export const AddGoalSheet: React.FC<AddGoalSheetProps> = ({
     const theme = useTheme();
     const [title, setTitle] = useState('');
     const [targetAmount, setTargetAmount] = useState('');
-    const [deadline, setDeadline] = useState('');
-    const [type, setType] = useState<'save' | 'spend'>('save');
+    const [targetDate, setTargetDate] = useState<Date | undefined>(undefined);
+    const [type, setType] = useState<'save' | 'spend_limit'>('save');
+    const [showDatePicker, setShowDatePicker] = useState(false);
 
     useEffect(() => {
         if (initialGoal) {
             setTitle(initialGoal.title);
             setTargetAmount(initialGoal.targetAmount.toString());
-            setDeadline(initialGoal.deadline || '');
+            setTargetDate(initialGoal.targetDate ? new Date(initialGoal.targetDate) : undefined);
             setType(initialGoal.type);
         } else {
             resetForm();
@@ -39,7 +41,7 @@ export const AddGoalSheet: React.FC<AddGoalSheetProps> = ({
     const resetForm = () => {
         setTitle('');
         setTargetAmount('');
-        setDeadline('');
+        setTargetDate(undefined);
         setType('save');
     };
 
@@ -50,9 +52,8 @@ export const AddGoalSheet: React.FC<AddGoalSheetProps> = ({
             title,
             targetAmount: parseFloat(targetAmount.replace(',', '.')),
             currentAmount: initialGoal ? initialGoal.currentAmount : 0,
-            deadline: deadline || undefined,
+            targetDate: targetDate ? targetDate.toISOString().split('T')[0] : '',
             type,
-            status: 'active',
         });
         onClose();
         resetForm();
@@ -65,6 +66,17 @@ export const AddGoalSheet: React.FC<AddGoalSheetProps> = ({
         }
     };
 
+    const onDateChange = (event: any, selectedDate?: Date) => {
+        const currentDate = selectedDate || targetDate;
+        setShowDatePicker(Platform.OS === 'ios');
+        setTargetDate(currentDate);
+    };
+
+    const formatDate = (date?: Date) => {
+        if (!date) return '';
+        return date.toLocaleDateString('pt-BR');
+    };
+
     const styles = createStyles(theme);
 
     return (
@@ -74,83 +86,102 @@ export const AddGoalSheet: React.FC<AddGoalSheetProps> = ({
             transparent={true}
             onRequestClose={onClose}
         >
-            <View style={styles.overlay}>
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={{ width: '100%' }}
-                >
-                    <View style={styles.sheet}>
-                        <View style={styles.header}>
-                            <Text style={styles.title}>
-                                {initialGoal ? 'Editar Meta' : 'Nova Meta'}
-                            </Text>
-                            <IconButton icon="close" onPress={onClose} />
-                        </View>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.overlay}
+            >
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                    <View style={styles.container}>
+                        <View style={styles.sheet}>
+                            <View style={styles.header}>
+                                <Text style={styles.title}>
+                                    {initialGoal ? 'Editar Meta' : 'Nova Meta'}
+                                </Text>
+                                <IconButton icon="close" onPress={onClose} />
+                            </View>
 
-                        <ScrollView style={styles.content}>
-                            <Text style={styles.label}>Tipo de Meta</Text>
-                            <SegmentedButtons
-                                value={type}
-                                onValueChange={value => setType(value as 'save' | 'spend')}
-                                buttons={[
-                                    { value: 'save', label: 'Economizar' },
-                                    { value: 'spend', label: 'Gastar' },
-                                ]}
-                                style={styles.input}
-                            />
+                            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+                                <Text style={styles.label}>Tipo de Meta</Text>
+                                <SegmentedButtons
+                                    value={type}
+                                    onValueChange={value => setType(value as 'save' | 'spend_limit')}
+                                    buttons={[
+                                        { value: 'save', label: 'Economizar' },
+                                        { value: 'spend_limit', label: 'Limite de Gastos' },
+                                    ]}
+                                    style={styles.input}
+                                />
 
-                            <Text style={styles.label}>Título</Text>
-                            <TextInput
-                                mode="outlined"
-                                value={title}
-                                onChangeText={setTitle}
-                                placeholder="Ex: Viagem, Carro Novo"
-                                style={styles.input}
-                            />
-
-                            <Text style={styles.label}>Valor Alvo</Text>
-                            <TextInput
-                                mode="outlined"
-                                value={targetAmount}
-                                onChangeText={setTargetAmount}
-                                keyboardType="decimal-pad"
-                                placeholder="0,00"
-                                left={<TextInput.Affix text="R$ " />}
-                                style={styles.input}
-                            />
-
-                            <Text style={styles.label}>Prazo (Opcional)</Text>
-                            <TextInput
-                                mode="outlined"
-                                value={deadline}
-                                onChangeText={setDeadline}
-                                placeholder="YYYY-MM-DD"
-                                style={styles.input}
-                            />
-
-                            <Button
-                                mode="contained"
-                                onPress={handleSave}
-                                style={styles.saveButton}
-                                disabled={!title || !targetAmount}
-                            >
-                                Salvar
-                            </Button>
-
-                            {initialGoal && onDelete && (
-                                <Button
+                                <Text style={styles.label}>Título</Text>
+                                <TextInput
                                     mode="outlined"
-                                    onPress={handleDelete}
-                                    style={styles.deleteButton}
-                                    textColor={theme.colors.error}
+                                    value={title}
+                                    onChangeText={setTitle}
+                                    placeholder="Ex: Viagem, Carro Novo"
+                                    style={styles.input}
+                                />
+
+                                <Text style={styles.label}>Valor Alvo</Text>
+                                <TextInput
+                                    mode="outlined"
+                                    value={targetAmount}
+                                    onChangeText={setTargetAmount}
+                                    keyboardType="decimal-pad"
+                                    placeholder="0,00"
+                                    left={<TextInput.Affix text="R$ " />}
+                                    style={styles.input}
+                                />
+
+                                <Text style={styles.label}>Prazo (Opcional)</Text>
+                                <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                                    <View pointerEvents="none">
+                                        <TextInput
+                                            mode="outlined"
+                                            value={formatDate(targetDate)}
+                                            placeholder="DD/MM/YYYY"
+                                            style={styles.input}
+                                            editable={false}
+                                            right={<TextInput.Icon icon="calendar" />}
+                                        />
+                                    </View>
+                                </TouchableOpacity>
+
+                                {showDatePicker && (
+                                    <DateTimePicker
+                                        testID="dateTimePicker"
+                                        value={targetDate || new Date()}
+                                        mode="date"
+                                        is24Hour={true}
+                                        display="default"
+                                        onChange={onDateChange}
+                                    />
+                                )}
+
+                                <Button
+                                    mode="contained"
+                                    onPress={handleSave}
+                                    style={styles.saveButton}
+                                    disabled={!title || !targetAmount}
                                 >
-                                    Excluir Meta
+                                    Salvar
                                 </Button>
-                            )}
-                        </ScrollView>
+
+                                {initialGoal && onDelete && (
+                                    <Button
+                                        mode="outlined"
+                                        onPress={handleDelete}
+                                        style={styles.deleteButton}
+                                        textColor={theme.colors.error}
+                                    >
+                                        Excluir Meta
+                                    </Button>
+                                )}
+                                <View style={{ height: 20 }} />
+                            </ScrollView>
+                        </View>
                     </View>
-                </KeyboardAvoidingView>
-            </View>
+                </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
         </Modal>
     );
 };
@@ -160,6 +191,10 @@ const createStyles = (theme: any) =>
         overlay: {
             flex: 1,
             backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'flex-end',
+        },
+        container: {
+            flex: 1,
             justifyContent: 'flex-end',
         },
         sheet: {
