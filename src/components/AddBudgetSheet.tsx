@@ -4,6 +4,7 @@ import { Text, Button, TextInput, useTheme, IconButton, Switch, Icon } from 'rea
 import { spacing, typography } from '../theme';
 import { EXPENSE_CATEGORIES, getCategoryLabel, getCategoryIcon } from '../constants';
 import { Budget, ExpenseCategory } from '../types';
+import { formatCurrency, parseCurrency } from '../utils/formatters';
 
 interface AddBudgetSheetProps {
     visible: boolean;
@@ -23,7 +24,7 @@ export const AddBudgetSheet = ({ visible, onClose, onSave, initialBudget, onDele
     useEffect(() => {
         if (visible) {
             if (initialBudget) {
-                setAmount(initialBudget.limitAmount.toString());
+                setAmount(formatCurrency(initialBudget.limitAmount));
                 setCategory(initialBudget.category);
                 setIsRecurring(initialBudget.isRecurring);
             } else {
@@ -35,8 +36,8 @@ export const AddBudgetSheet = ({ visible, onClose, onSave, initialBudget, onDele
     }, [visible, initialBudget]);
 
     const handleSave = async () => {
-        // Replace comma with dot for valid number parsing
-        const normalizedAmount = amount.replace(',', '.');
+        // Parse "R$ 1.234,56" -> 1234.56
+        const normalizedAmount = parseCurrency(amount);
 
         if (!amount || isNaN(Number(normalizedAmount))) {
             // Optional: Add an alert here if needed, but for now just return
@@ -94,10 +95,13 @@ export const AddBudgetSheet = ({ visible, onClose, onSave, initialBudget, onDele
                         <Text style={styles.label}>Valor Limite</Text>
                         <TextInput
                             value={amount}
-                            onChangeText={setAmount}
+                            onChangeText={(text) => {
+                                const numericValue = parseCurrency(text);
+                                setAmount(formatCurrency(numericValue));
+                            }}
                             keyboardType="numeric"
                             style={styles.input}
-                            left={<TextInput.Affix text="R$ " />}
+                            label="Valor Limite"
                         />
 
                         <Text style={styles.label}>Categoria</Text>

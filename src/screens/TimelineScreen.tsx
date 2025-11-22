@@ -8,6 +8,8 @@ import { format, parseISO, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getCategoryIcon, getCategoryColor } from '../constants';
 
+import { formatCurrency } from '../utils/formatters';
+
 export const TimelineScreen = () => {
     const theme = useTheme();
     const navigation = useNavigation();
@@ -76,7 +78,7 @@ export const TimelineScreen = () => {
                     </View>
                     <View style={styles.amountContainer}>
                         <Text style={[styles.amount, { color }]}>
-                            {isExpense ? '-' : '+'} R$ {item.value.toFixed(2)}
+                            {isExpense ? '-' : '+'} {formatCurrency(item.value)}
                         </Text>
                     </View>
                 </View>

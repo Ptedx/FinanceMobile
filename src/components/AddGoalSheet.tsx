@@ -4,6 +4,7 @@ import { Text, TextInput, Button, useTheme, IconButton, SegmentedButtons } from 
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { spacing, typography } from '../theme';
 import { Goal } from '../types';
+import { formatCurrency, parseCurrency } from '../utils/formatters';
 
 interface AddGoalSheetProps {
     visible: boolean;
@@ -30,7 +31,7 @@ export const AddGoalSheet: React.FC<AddGoalSheetProps> = ({
     useEffect(() => {
         if (initialGoal) {
             setTitle(initialGoal.title);
-            setTargetAmount(initialGoal.targetAmount.toString());
+            setTargetAmount(formatCurrency(initialGoal.targetAmount));
             setTargetDate(initialGoal.targetDate ? new Date(initialGoal.targetDate) : undefined);
             setType(initialGoal.type);
         } else {
@@ -50,7 +51,7 @@ export const AddGoalSheet: React.FC<AddGoalSheetProps> = ({
 
         await onSave({
             title,
-            targetAmount: parseFloat(targetAmount.replace(',', '.')),
+            targetAmount: parseCurrency(targetAmount),
             currentAmount: initialGoal ? initialGoal.currentAmount : 0,
             targetDate: targetDate ? targetDate.toISOString().split('T')[0] : '',
             type,
@@ -125,10 +126,13 @@ export const AddGoalSheet: React.FC<AddGoalSheetProps> = ({
                                 <TextInput
                                     mode="outlined"
                                     value={targetAmount}
-                                    onChangeText={setTargetAmount}
-                                    keyboardType="decimal-pad"
-                                    placeholder="0,00"
-                                    left={<TextInput.Affix text="R$ " />}
+                                    onChangeText={(text) => {
+                                        const numericValue = parseCurrency(text);
+                                        setTargetAmount(formatCurrency(numericValue));
+                                    }}
+                                    keyboardType="numeric"
+                                    placeholder="R$ 0,00"
+                                    label="Valor Alvo"
                                     style={styles.input}
                                 />
 

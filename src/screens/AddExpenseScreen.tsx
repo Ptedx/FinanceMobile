@@ -9,6 +9,7 @@ import { useFinanceStore } from '../store/financeStore';
 import { spacing, typography } from '../theme';
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, getCategoryColor } from '../constants';
 import { ExpenseCategory, PaymentMethod } from '../types';
+import { formatCurrency, parseCurrency } from '../utils/formatters';
 
 
 const expenseSchema = z.object({
@@ -48,7 +49,7 @@ export const AddExpenseScreen = ({ navigation, route }: any) => {
   const { control, handleSubmit, formState: { errors } } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
-      value: expenseToEdit ? expenseToEdit.value.toString().replace('.', ',') : '',
+      value: expenseToEdit ? formatCurrency(expenseToEdit.value) : '',
       description: expenseToEdit?.description || '',
       category: expenseToEdit?.category || '',
       paymentMethod: expenseToEdit?.paymentMethod || '',
@@ -59,7 +60,7 @@ export const AddExpenseScreen = ({ navigation, route }: any) => {
   const onSubmit = async (data: ExpenseFormData) => {
     const expenseData = {
       category: data.category as ExpenseCategory,
-      value: parseFloat(data.value.replace(',', '.')),
+      value: parseCurrency(data.value),
       date: date.toISOString(),
       paymentMethod: data.paymentMethod as PaymentMethod,
       isRecurring: data.isRecurring,
@@ -96,10 +97,13 @@ export const AddExpenseScreen = ({ navigation, route }: any) => {
             render={({ field: { onChange, value } }) => (
               <TextInput
                 mode="outlined"
-                label="R$"
+                label="Valor"
                 value={value}
-                onChangeText={onChange}
-                keyboardType="decimal-pad"
+                onChangeText={(text) => {
+                  const numericValue = parseCurrency(text);
+                  onChange(formatCurrency(numericValue));
+                }}
+                keyboardType="numeric"
                 error={!!errors.value}
                 style={styles.input}
               />

@@ -6,6 +6,8 @@ import { spacing, typography } from '../theme';
 import { AddGoalSheet } from '../components/AddGoalSheet';
 import { Goal } from '../types';
 
+import { formatCurrency } from '../utils/formatters';
+
 export const GoalsScreen = () => {
     const theme = useTheme();
     const { goals, addGoal, updateGoal, deleteGoal } = useFinanceStore();
@@ -62,7 +64,7 @@ export const GoalsScreen = () => {
                                 <View style={styles.cardHeader}>
                                     <Text style={styles.goalTitle}>{goal.title}</Text>
                                     <Text style={styles.goalAmount}>
-                                        R$ {goal.currentAmount.toFixed(2)} / R$ {goal.targetAmount.toFixed(2)}
+                                        {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
                                     </Text>
                                 </View>
                                 <ProgressBar

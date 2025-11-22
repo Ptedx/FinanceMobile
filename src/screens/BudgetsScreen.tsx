@@ -8,6 +8,8 @@ import { AddBudgetSheet } from '../components/AddBudgetSheet';
 import { getCategoryLabel, getCategoryIcon, getCategoryColor } from '../constants';
 import { Budget } from '../types';
 
+import { formatCurrency } from '../utils/formatters';
+
 export const BudgetsScreen = () => {
   const theme = useTheme();
   const { getBudgetProgress, addBudget, updateBudget, deleteBudget } = useFinanceStore();
@@ -87,10 +89,10 @@ export const BudgetsScreen = () => {
 
               <View style={styles.cardFooter}>
                 <Text style={styles.amountText}>
-                  Gasto: R$ {item.spent.toFixed(2)}
+                  Gasto: {formatCurrency(item.spent)}
                 </Text>
                 <Text style={styles.limitText}>
-                  Limite: R$ {item.limitAmount.toFixed(2)}
+                  Limite: {formatCurrency(item.limitAmount)}
                 </Text>
               </View>
 

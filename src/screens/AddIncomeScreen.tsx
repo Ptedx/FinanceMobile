@@ -10,6 +10,7 @@ import { useThemeStore } from '../hooks/useTheme';
 import { spacing, typography } from '../theme';
 import { INCOME_CATEGORIES } from '../constants';
 import { IncomeCategory, GoalAllocation } from '../types';
+import { formatCurrency, parseCurrency } from '../utils/formatters';
 
 
 const incomeSchema = z.object({
@@ -54,7 +55,7 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
   const { control, handleSubmit, watch, formState: { errors } } = useForm<IncomeFormData>({
     resolver: zodResolver(incomeSchema),
     defaultValues: {
-      value: incomeToEdit ? incomeToEdit.value.toString().replace('.', ',') : '',
+      value: incomeToEdit ? formatCurrency(incomeToEdit.value) : '',
       description: incomeToEdit?.description || '',
       category: incomeToEdit?.category || '',
       isRecurring: incomeToEdit?.isRecurring || false,
@@ -62,23 +63,15 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
   });
 
   const incomeValue = watch('value');
-  // Parse "R$ 1.234,56" -> 1234.56
-  const parsedValue = incomeValue
-    ? parseFloat(incomeValue.replace(/[^\d,]/g, '').replace(',', '.') || '0')
-    : 0;
-
-  const allocatedTotal = goalAllocations.reduce((sum, alloc) => sum + alloc.amount, 0);
-  const remainingAmount = parsedValue - allocatedTotal;
-
-  const activeGoals = goals.filter(g => g.type === 'save' && g.currentAmount < g.targetAmount);
+  const parsedValue = incomeValue ? parseCurrency(incomeValue) : 0;
 
   const handleGoalAllocation = (goalId: string, amount: string) => {
-    const parsedAmount = parseFloat(amount.replace(',', '.')) || 0;
-
+    const parsedAmount = parseCurrency(amount);
     const existingIndex = goalAllocations.findIndex(a => a.goalId === goalId);
 
-    if (parsedAmount === 0) {
-      setGoalAllocations(goalAllocations.filter(a => a.goalId !== goalId));
+    if (parsedAmount === 0 && existingIndex >= 0) {
+      const newAllocations = goalAllocations.filter(a => a.goalId !== goalId);
+      setGoalAllocations(newAllocations);
     } else if (existingIndex >= 0) {
       const newAllocations = [...goalAllocations];
       newAllocations[existingIndex] = { goalId, amount: parsedAmount };
@@ -91,6 +84,10 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
   const getAllocationForGoal = (goalId: string): number => {
     return goalAllocations.find(a => a.goalId === goalId)?.amount || 0;
   };
+
+  const activeGoals = useMemo(() => goals.filter(g => g.status === 'active'), [goals]);
+  const totalAllocated = goalAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+  const remainingAmount = parsedValue - totalAllocated;
 
   const onSubmit = async (data: IncomeFormData) => {
     const income = {
@@ -253,20 +250,10 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
                 label="Valor"
                 value={value}
                 onChangeText={(text) => {
-                  // Remove non-numeric characters
-                  const numericValue = text.replace(/\D/g, '');
-
-                  // Format as currency (R$ 0,00)
-                  const amount = Number(numericValue) / 100;
-                  const formatted = amount.toLocaleString('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  });
-
-                  onChange(formatted);
+                  const numericValue = parseCurrency(text);
+                  onChange(formatCurrency(numericValue));
                 }}
                 keyboardType="numeric"
-                error={!!errors.value}
                 style={styles.input}
                 outlineColor={theme.colors.outline}
                 activeOutlineColor={theme.colors.success}
@@ -350,15 +337,15 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
                     <View style={styles.goalInfo}>
                       <Text style={styles.goalTitle}>{goal.title}</Text>
                       <Text style={styles.goalProgress}>
-                        R$ {goal.currentAmount.toFixed(2)} / R$ {goal.targetAmount.toFixed(2)}
+                        {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
                       </Text>
                     </View>
                     <TextInput
                       mode="outlined"
-                      label="R$"
-                      value={getAllocationForGoal(goal.id) > 0 ? getAllocationForGoal(goal.id).toString() : ''}
+                      label="Valor"
+                      value={getAllocationForGoal(goal.id) > 0 ? formatCurrency(getAllocationForGoal(goal.id)) : ''}
                       onChangeText={(text) => handleGoalAllocation(goal.id, text)}
-                      keyboardType="decimal-pad"
+                      keyboardType="numeric"
                       style={styles.goalInput}
                       dense
                       outlineColor={theme.colors.outline}
@@ -366,11 +353,10 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
                     />
                   </View>
                 ))}
-
                 <View style={styles.remainingAmount}>
-                  <Text style={styles.remainingLabel}>Valor Restante:</Text>
+                  <Text style={styles.remainingLabel}>Restante:</Text>
                   <Text style={styles.remainingValue}>
-                    R$ {remainingAmount.toFixed(2)}
+                    {formatCurrency(remainingAmount)}
                   </Text>
                 </View>
               </>
@@ -420,7 +406,7 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
           {isEditing ? 'Salvar Alterações' : 'Adicionar Receita'}
         </Button>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingView >
   );
 };
 
