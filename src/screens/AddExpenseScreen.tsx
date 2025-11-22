@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, SegmentedButtons, IconButton, useTheme } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -82,141 +82,147 @@ export const AddExpenseScreen = ({ navigation, route }: any) => {
   const styles = createStyles(theme);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card style={styles.card}>
-        <Text style={styles.sectionTitle}>Valor</Text>
-        <Controller
-          control={control}
-          name="value"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              mode="outlined"
-              label="R$"
-              value={value}
-              onChangeText={onChange}
-              keyboardType="decimal-pad"
-              error={!!errors.value}
-              style={styles.input}
-            />
-          )}
-        />
-        {errors.value && <Text style={styles.errorText}>{errors.value.message}</Text>}
-
-        <Text style={styles.sectionTitle}>Descrição (opcional)</Text>
-        <Controller
-          control={control}
-          name="description"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              mode="outlined"
-              label="Ex: Almoço no restaurante"
-              value={value}
-              onChangeText={onChange}
-              style={styles.input}
-            />
-          )}
-        />
-      </Card>
-
-      <Card style={styles.card}>
-        <Text style={styles.sectionTitle}>Categoria</Text>
-        <Controller
-          control={control}
-          name="category"
-          render={({ field: { onChange, value } }) => (
-            <View style={styles.categoriesGrid}>
-              {EXPENSE_CATEGORIES.map(cat => (
-                <TouchableOpacity
-                  key={cat.value}
-                  style={[
-                    styles.categoryChip,
-                    value === cat.value && {
-                      backgroundColor: getCategoryColor(cat.value),
-                    },
-                  ]}
-                  onPress={() => onChange(cat.value)}
-                >
-                  <IconButton
-                    icon={cat.icon}
-                    size={20}
-                    iconColor={value === cat.value ? '#fff' : getCategoryColor(cat.value)}
-                  />
-                  <Text
-                    style={[
-                      styles.categoryLabel,
-                      value === cat.value && styles.categoryLabelActive,
-                    ]}
-                  >
-                    {cat.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        />
-        {errors.category && <Text style={styles.errorText}>{errors.category.message}</Text>}
-      </Card>
-
-      <Card style={styles.card}>
-        <Text style={styles.sectionTitle}>Método de Pagamento</Text>
-        <Controller
-          control={control}
-          name="paymentMethod"
-          render={({ field: { onChange, value } }) => (
-            <View style={styles.paymentGrid}>
-              {PAYMENT_METHODS.map(method => (
-                <TouchableOpacity
-                  key={method.value}
-                  style={[
-                    styles.paymentChip,
-                    value === method.value && styles.paymentChipActive,
-                  ]}
-                  onPress={() => onChange(method.value)}
-                >
-                  <IconButton icon={method.icon} size={20} />
-                  <Text style={styles.paymentLabel}>{method.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        />
-        {errors.paymentMethod && <Text style={styles.errorText}>{errors.paymentMethod.message}</Text>}
-      </Card>
-
-      <Card style={styles.card}>
-        <Controller
-          control={control}
-          name="isRecurring"
-          render={({ field: { onChange, value } }) => (
-            <TouchableOpacity
-              style={styles.recurringRow}
-              onPress={() => onChange(!value)}
-            >
-              <View>
-                <Text style={styles.recurringTitle}>Gasto Recorrente</Text>
-                <Text style={styles.recurringSubtitle}>
-                  Este gasto se repete mensalmente
-                </Text>
-              </View>
-              <IconButton
-                icon={value ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                iconColor={theme.colors.primary}
-                size={24}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>Valor</Text>
+          <Controller
+            control={control}
+            name="value"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                mode="outlined"
+                label="R$"
+                value={value}
+                onChangeText={onChange}
+                keyboardType="decimal-pad"
+                error={!!errors.value}
+                style={styles.input}
               />
-            </TouchableOpacity>
-          )}
-        />
-      </Card>
+            )}
+          />
+          {errors.value && <Text style={styles.errorText}>{errors.value.message}</Text>}
 
-      <Button
-        mode="contained"
-        onPress={handleSubmit(onSubmit)}
-        style={styles.submitButton}
-        contentStyle={styles.submitButtonContent}
-      >
-        {isEditing ? 'Salvar Alterações' : 'Adicionar Gasto'}
-      </Button>
-    </ScrollView>
+          <Text style={styles.sectionTitle}>Descrição (opcional)</Text>
+          <Controller
+            control={control}
+            name="description"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                mode="outlined"
+                label="Ex: Almoço no restaurante"
+                value={value}
+                onChangeText={onChange}
+                style={styles.input}
+              />
+            )}
+          />
+        </Card>
+
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>Categoria</Text>
+          <Controller
+            control={control}
+            name="category"
+            render={({ field: { onChange, value } }) => (
+              <View style={styles.categoriesGrid}>
+                {EXPENSE_CATEGORIES.map(cat => (
+                  <TouchableOpacity
+                    key={cat.value}
+                    style={[
+                      styles.categoryChip,
+                      value === cat.value && {
+                        backgroundColor: getCategoryColor(cat.value),
+                      },
+                    ]}
+                    onPress={() => onChange(cat.value)}
+                  >
+                    <IconButton
+                      icon={cat.icon}
+                      size={20}
+                      iconColor={value === cat.value ? '#fff' : getCategoryColor(cat.value)}
+                    />
+                    <Text
+                      style={[
+                        styles.categoryLabel,
+                        value === cat.value && styles.categoryLabelActive,
+                      ]}
+                    >
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          />
+          {errors.category && <Text style={styles.errorText}>{errors.category.message}</Text>}
+        </Card>
+
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>Método de Pagamento</Text>
+          <Controller
+            control={control}
+            name="paymentMethod"
+            render={({ field: { onChange, value } }) => (
+              <View style={styles.paymentGrid}>
+                {PAYMENT_METHODS.map(method => (
+                  <TouchableOpacity
+                    key={method.value}
+                    style={[
+                      styles.paymentChip,
+                      value === method.value && styles.paymentChipActive,
+                    ]}
+                    onPress={() => onChange(method.value)}
+                  >
+                    <IconButton icon={method.icon} size={20} />
+                    <Text style={styles.paymentLabel}>{method.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          />
+          {errors.paymentMethod && <Text style={styles.errorText}>{errors.paymentMethod.message}</Text>}
+        </Card>
+
+        <Card style={styles.card}>
+          <Controller
+            control={control}
+            name="isRecurring"
+            render={({ field: { onChange, value } }) => (
+              <TouchableOpacity
+                style={styles.recurringRow}
+                onPress={() => onChange(!value)}
+              >
+                <View>
+                  <Text style={styles.recurringTitle}>Gasto Recorrente</Text>
+                  <Text style={styles.recurringSubtitle}>
+                    Este gasto se repete mensalmente
+                  </Text>
+                </View>
+                <IconButton
+                  icon={value ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                  iconColor={theme.colors.primary}
+                  size={24}
+                />
+              </TouchableOpacity>
+            )}
+          />
+        </Card>
+
+        <Button
+          mode="contained"
+          onPress={handleSubmit(onSubmit)}
+          style={styles.submitButton}
+          contentStyle={styles.submitButtonContent}
+        >
+          {isEditing ? 'Salvar Alterações' : 'Adicionar Gasto'}
+        </Button>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 

@@ -22,7 +22,7 @@ export const DashboardScreen = ({ navigation }: any) => {
   const theme = useTheme();
   const { user } = useAuthStore();
   const { alerts, markAlertAsRead, goals, isLoading, error, retry } = useFinanceStore();
-  const [selectedPeriod, setSelectedPeriod] = useState<'1D' | '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('1M');
+  const [selectedPeriod, setSelectedPeriod] = useState<'1D' | '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('7D');
 
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 

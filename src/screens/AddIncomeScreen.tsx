@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, IconButton, Chip } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -233,173 +233,179 @@ export const AddIncomeScreen = ({ navigation, route }: any) => {
   });
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Card style={styles.card}>
-        <Text style={styles.sectionTitle}>Valor</Text>
-        <Controller
-          control={control}
-          name="value"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              mode="outlined"
-              label="R$"
-              value={value}
-              onChangeText={onChange}
-              keyboardType="decimal-pad"
-              error={!!errors.value}
-              style={styles.input}
-              outlineColor={theme.colors.outline}
-              activeOutlineColor={theme.colors.success}
-            />
-          )}
-        />
-        {errors.value && <Text style={styles.errorText}>{errors.value.message}</Text>}
-
-        <Text style={styles.sectionTitle}>Descrição (opcional)</Text>
-        <Controller
-          control={control}
-          name="description"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              mode="outlined"
-              label="Ex: Salário de dezembro"
-              value={value}
-              onChangeText={onChange}
-              style={styles.input}
-              outlineColor={theme.colors.outline}
-              activeOutlineColor={theme.colors.success}
-            />
-          )}
-        />
-      </Card>
-
-      <Card style={styles.card}>
-        <Text style={styles.sectionTitle}>Categoria</Text>
-        <Controller
-          control={control}
-          name="category"
-          render={({ field: { onChange, value } }) => (
-            <View style={styles.categoriesGrid}>
-              {INCOME_CATEGORIES.map(cat => (
-                <TouchableOpacity
-                  key={cat.value}
-                  style={[
-                    styles.categoryChip,
-                    value === cat.value && styles.categoryChipActive,
-                  ]}
-                  onPress={() => onChange(cat.value)}
-                >
-                  <IconButton
-                    icon={cat.icon}
-                    size={20}
-                    iconColor={value === cat.value ? '#fff' : theme.colors.success}
-                  />
-                  <Text
-                    style={[
-                      styles.categoryLabel,
-                      value === cat.value && styles.categoryLabelActive,
-                    ]}
-                  >
-                    {cat.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        />
-        {errors.category && <Text style={styles.errorText}>{errors.category.message}</Text>}
-      </Card>
-
-      {parsedValue > 0 && activeGoals.length > 0 && (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Card style={styles.card}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-            <Text style={styles.sectionTitle}>Alocar para Metas</Text>
-            <Button
-              mode="text"
-              onPress={() => setShowGoalAllocation(!showGoalAllocation)}
-              textColor={theme.colors.success}
-            >
-              {showGoalAllocation ? 'Ocultar' : 'Mostrar'}
-            </Button>
-          </View>
-
-          {showGoalAllocation && (
-            <>
-              {activeGoals.map(goal => (
-                <View key={goal.id} style={styles.goalItem}>
-                  <View style={styles.goalInfo}>
-                    <Text style={styles.goalTitle}>{goal.title}</Text>
-                    <Text style={styles.goalProgress}>
-                      R$ {goal.currentAmount.toFixed(2)} / R$ {goal.targetAmount.toFixed(2)}
-                    </Text>
-                  </View>
-                  <TextInput
-                    mode="outlined"
-                    label="R$"
-                    value={getAllocationForGoal(goal.id) > 0 ? getAllocationForGoal(goal.id).toString() : ''}
-                    onChangeText={(text) => handleGoalAllocation(goal.id, text)}
-                    keyboardType="decimal-pad"
-                    style={styles.goalInput}
-                    dense
-                    outlineColor={theme.colors.outline}
-                    activeOutlineColor={theme.colors.success}
-                  />
-                </View>
-              ))}
-
-              <View style={styles.remainingAmount}>
-                <Text style={styles.remainingLabel}>Valor Restante:</Text>
-                <Text style={styles.remainingValue}>
-                  R$ {remainingAmount.toFixed(2)}
-                </Text>
-              </View>
-            </>
-          )}
-        </Card>
-      )}
-
-      <Card style={styles.card}>
-        <Controller
-          control={control}
-          name="isRecurring"
-          render={({ field: { onChange, value } }) => (
-            <TouchableOpacity
-              style={styles.recurringRow}
-              onPress={() => onChange(!value)}
-            >
-              <View>
-                <Text style={styles.recurringTitle}>Receita Recorrente</Text>
-                <Text style={styles.recurringSubtitle}>
-                  Esta receita se repete mensalmente
-                </Text>
-              </View>
-              <IconButton
-                icon={value ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                iconColor={theme.colors.success}
-                size={24}
+          <Text style={styles.sectionTitle}>Valor</Text>
+          <Controller
+            control={control}
+            name="value"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                mode="outlined"
+                label="R$"
+                value={value}
+                onChangeText={onChange}
+                keyboardType="decimal-pad"
+                error={!!errors.value}
+                style={styles.input}
+                outlineColor={theme.colors.outline}
+                activeOutlineColor={theme.colors.success}
               />
-            </TouchableOpacity>
-          )}
-        />
-      </Card>
+            )}
+          />
+          {errors.value && <Text style={styles.errorText}>{errors.value.message}</Text>}
 
-      {remainingAmount < 0 && (
-        <Text style={[styles.errorText, { color: theme.colors.error, marginTop: spacing.md }]}>
-          O total alocado não pode exceder o valor da receita!
-        </Text>
-      )}
+          <Text style={styles.sectionTitle}>Descrição (opcional)</Text>
+          <Controller
+            control={control}
+            name="description"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                mode="outlined"
+                label="Ex: Salário de dezembro"
+                value={value}
+                onChangeText={onChange}
+                style={styles.input}
+                outlineColor={theme.colors.outline}
+                activeOutlineColor={theme.colors.success}
+              />
+            )}
+          />
+        </Card>
 
-      <Button
-        mode="contained"
-        onPress={handleSubmit(onSubmit)}
-        style={styles.submitButton}
-        contentStyle={styles.submitButtonContent}
-        buttonColor={theme.colors.success}
-        disabled={remainingAmount < 0 || parsedValue === 0}
-      >
-        {isEditing ? 'Salvar Alterações' : 'Adicionar Receita'}
-      </Button>
-    </ScrollView>
+        <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>Categoria</Text>
+          <Controller
+            control={control}
+            name="category"
+            render={({ field: { onChange, value } }) => (
+              <View style={styles.categoriesGrid}>
+                {INCOME_CATEGORIES.map(cat => (
+                  <TouchableOpacity
+                    key={cat.value}
+                    style={[
+                      styles.categoryChip,
+                      value === cat.value && styles.categoryChipActive,
+                    ]}
+                    onPress={() => onChange(cat.value)}
+                  >
+                    <IconButton
+                      icon={cat.icon}
+                      size={20}
+                      iconColor={value === cat.value ? '#fff' : theme.colors.success}
+                    />
+                    <Text
+                      style={[
+                        styles.categoryLabel,
+                        value === cat.value && styles.categoryLabelActive,
+                      ]}
+                    >
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          />
+          {errors.category && <Text style={styles.errorText}>{errors.category.message}</Text>}
+        </Card>
+
+        {parsedValue > 0 && activeGoals.length > 0 && (
+          <Card style={styles.card}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+              <Text style={styles.sectionTitle}>Alocar para Metas</Text>
+              <Button
+                mode="text"
+                onPress={() => setShowGoalAllocation(!showGoalAllocation)}
+                textColor={theme.colors.success}
+              >
+                {showGoalAllocation ? 'Ocultar' : 'Mostrar'}
+              </Button>
+            </View>
+
+            {showGoalAllocation && (
+              <>
+                {activeGoals.map(goal => (
+                  <View key={goal.id} style={styles.goalItem}>
+                    <View style={styles.goalInfo}>
+                      <Text style={styles.goalTitle}>{goal.title}</Text>
+                      <Text style={styles.goalProgress}>
+                        R$ {goal.currentAmount.toFixed(2)} / R$ {goal.targetAmount.toFixed(2)}
+                      </Text>
+                    </View>
+                    <TextInput
+                      mode="outlined"
+                      label="R$"
+                      value={getAllocationForGoal(goal.id) > 0 ? getAllocationForGoal(goal.id).toString() : ''}
+                      onChangeText={(text) => handleGoalAllocation(goal.id, text)}
+                      keyboardType="decimal-pad"
+                      style={styles.goalInput}
+                      dense
+                      outlineColor={theme.colors.outline}
+                      activeOutlineColor={theme.colors.success}
+                    />
+                  </View>
+                ))}
+
+                <View style={styles.remainingAmount}>
+                  <Text style={styles.remainingLabel}>Valor Restante:</Text>
+                  <Text style={styles.remainingValue}>
+                    R$ {remainingAmount.toFixed(2)}
+                  </Text>
+                </View>
+              </>
+            )}
+          </Card>
+        )}
+
+        <Card style={styles.card}>
+          <Controller
+            control={control}
+            name="isRecurring"
+            render={({ field: { onChange, value } }) => (
+              <TouchableOpacity
+                style={styles.recurringRow}
+                onPress={() => onChange(!value)}
+              >
+                <View>
+                  <Text style={styles.recurringTitle}>Receita Recorrente</Text>
+                  <Text style={styles.recurringSubtitle}>
+                    Esta receita se repete mensalmente
+                  </Text>
+                </View>
+                <IconButton
+                  icon={value ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                  iconColor={theme.colors.success}
+                  size={24}
+                />
+              </TouchableOpacity>
+            )}
+          />
+        </Card>
+
+        {remainingAmount < 0 && (
+          <Text style={[styles.errorText, { color: theme.colors.error, marginTop: spacing.md }]}>
+            O total alocado não pode exceder o valor da receita!
+          </Text>
+        )}
+
+        <Button
+          mode="contained"
+          onPress={handleSubmit(onSubmit)}
+          style={styles.submitButton}
+          contentStyle={styles.submitButtonContent}
+          buttonColor={theme.colors.success}
+          disabled={remainingAmount < 0 || parsedValue === 0}
+        >
+          {isEditing ? 'Salvar Alterações' : 'Adicionar Receita'}
+        </Button>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 

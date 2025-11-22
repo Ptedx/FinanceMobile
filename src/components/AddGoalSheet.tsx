@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, TextInput, Button, useTheme, IconButton, SegmentedButtons } from 'react-native-paper';
 import { spacing, typography } from '../theme';
 import { Goal } from '../types';
@@ -75,76 +75,81 @@ export const AddGoalSheet: React.FC<AddGoalSheetProps> = ({
             onRequestClose={onClose}
         >
             <View style={styles.overlay}>
-                <View style={styles.sheet}>
-                    <View style={styles.header}>
-                        <Text style={styles.title}>
-                            {initialGoal ? 'Editar Meta' : 'Nova Meta'}
-                        </Text>
-                        <IconButton icon="close" onPress={onClose} />
-                    </View>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={{ width: '100%' }}
+                >
+                    <View style={styles.sheet}>
+                        <View style={styles.header}>
+                            <Text style={styles.title}>
+                                {initialGoal ? 'Editar Meta' : 'Nova Meta'}
+                            </Text>
+                            <IconButton icon="close" onPress={onClose} />
+                        </View>
 
-                    <ScrollView style={styles.content}>
-                        <Text style={styles.label}>Tipo de Meta</Text>
-                        <SegmentedButtons
-                            value={type}
-                            onValueChange={value => setType(value as 'save' | 'spend')}
-                            buttons={[
-                                { value: 'save', label: 'Economizar' },
-                                { value: 'spend', label: 'Gastar' },
-                            ]}
-                            style={styles.input}
-                        />
+                        <ScrollView style={styles.content}>
+                            <Text style={styles.label}>Tipo de Meta</Text>
+                            <SegmentedButtons
+                                value={type}
+                                onValueChange={value => setType(value as 'save' | 'spend')}
+                                buttons={[
+                                    { value: 'save', label: 'Economizar' },
+                                    { value: 'spend', label: 'Gastar' },
+                                ]}
+                                style={styles.input}
+                            />
 
-                        <Text style={styles.label}>Título</Text>
-                        <TextInput
-                            mode="outlined"
-                            value={title}
-                            onChangeText={setTitle}
-                            placeholder="Ex: Viagem, Carro Novo"
-                            style={styles.input}
-                        />
-
-                        <Text style={styles.label}>Valor Alvo</Text>
-                        <TextInput
-                            mode="outlined"
-                            value={targetAmount}
-                            onChangeText={setTargetAmount}
-                            keyboardType="decimal-pad"
-                            placeholder="0,00"
-                            left={<TextInput.Affix text="R$ " />}
-                            style={styles.input}
-                        />
-
-                        <Text style={styles.label}>Prazo (Opcional)</Text>
-                        <TextInput
-                            mode="outlined"
-                            value={deadline}
-                            onChangeText={setDeadline}
-                            placeholder="YYYY-MM-DD"
-                            style={styles.input}
-                        />
-
-                        <Button
-                            mode="contained"
-                            onPress={handleSave}
-                            style={styles.saveButton}
-                            disabled={!title || !targetAmount}
-                        >
-                            Salvar
-                        </Button>
-
-                        {initialGoal && onDelete && (
-                            <Button
+                            <Text style={styles.label}>Título</Text>
+                            <TextInput
                                 mode="outlined"
-                                onPress={handleDelete}
-                                style={styles.deleteButton}
-                                textColor={theme.colors.error}
+                                value={title}
+                                onChangeText={setTitle}
+                                placeholder="Ex: Viagem, Carro Novo"
+                                style={styles.input}
+                            />
+
+                            <Text style={styles.label}>Valor Alvo</Text>
+                            <TextInput
+                                mode="outlined"
+                                value={targetAmount}
+                                onChangeText={setTargetAmount}
+                                keyboardType="decimal-pad"
+                                placeholder="0,00"
+                                left={<TextInput.Affix text="R$ " />}
+                                style={styles.input}
+                            />
+
+                            <Text style={styles.label}>Prazo (Opcional)</Text>
+                            <TextInput
+                                mode="outlined"
+                                value={deadline}
+                                onChangeText={setDeadline}
+                                placeholder="YYYY-MM-DD"
+                                style={styles.input}
+                            />
+
+                            <Button
+                                mode="contained"
+                                onPress={handleSave}
+                                style={styles.saveButton}
+                                disabled={!title || !targetAmount}
                             >
-                                Excluir Meta
+                                Salvar
                             </Button>
-                        )}
-                    </ScrollView>
-                </View>
+
+                            {initialGoal && onDelete && (
+                                <Button
+                                    mode="outlined"
+                                    onPress={handleDelete}
+                                    style={styles.deleteButton}
+                                    textColor={theme.colors.error}
+                                >
+                                    Excluir Meta
+                                </Button>
+                            )}
+                        </ScrollView>
+                    </View>
+                </KeyboardAvoidingView>
             </View>
         </Modal>
     );
