@@ -21,7 +21,7 @@ import { ErrorRetryScreen } from './ErrorRetryScreen';
 export const DashboardScreen = ({ navigation }: any) => {
   const theme = useTheme();
   const { user } = useAuthStore();
-  const { alerts, markAlertAsRead, goals, isLoading, error, retry } = useFinanceStore();
+  const { alerts, markAlertAsRead, goals, isLoading, error, retry, isValuesVisible, toggleValuesVisibility } = useFinanceStore();
   const [selectedPeriod, setSelectedPeriod] = useState<'1D' | '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('7D');
 
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
@@ -71,6 +71,11 @@ export const DashboardScreen = ({ navigation }: any) => {
     setDismissedAlerts(prev => [...prev, id]);
   };
 
+  const formatValue = (value: number, prefix: string = 'R$ ') => {
+    if (!isValuesVisible) return `${prefix}••••••`;
+    return `${prefix}${value.toFixed(2)}`;
+  };
+
   const styles = createStyles(theme);
 
   return (
@@ -82,7 +87,14 @@ export const DashboardScreen = ({ navigation }: any) => {
             {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
           </Text>
         </View>
-        <IconButton icon="bell" size={24} onPress={() => navigation.navigate('Alerts')} />
+        <View style={{ flexDirection: 'row' }}>
+          <IconButton
+            icon={isValuesVisible ? "eye" : "eye-off"}
+            size={24}
+            onPress={toggleValuesVisibility}
+          />
+          <IconButton icon="bell" size={24} onPress={() => navigation.navigate('Alerts')} />
+        </View>
       </View>
 
       <ScrollView
@@ -106,14 +118,14 @@ export const DashboardScreen = ({ navigation }: any) => {
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Saldo Atual</Text>
               <Text style={[styles.summaryValue, { color: theme.colors.onSurface }]}>
-                R$ {dashboardData.availableBalance.toFixed(2)}
+                {formatValue(dashboardData.availableBalance)}
               </Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Projeção</Text>
               <Text style={[styles.summaryValue, { color: (theme.colors as any).warning }]}>
-                R$ {dashboardData.projection.toFixed(2)}
+                {formatValue(dashboardData.projection)}
               </Text>
             </View>
           </View>
@@ -125,14 +137,14 @@ export const DashboardScreen = ({ navigation }: any) => {
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Receitas</Text>
               <Text style={[styles.summaryValue, { color: theme.colors.primary }]}>
-                R$ {dashboardData.monthlyIncome.toFixed(2)}
+                {formatValue(dashboardData.monthlyIncome)}
               </Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Gastos</Text>
               <Text style={[styles.summaryValue, { color: theme.colors.error }]}>
-                R$ {dashboardData.monthlyTotal.toFixed(2)}
+                {formatValue(dashboardData.monthlyTotal)}
               </Text>
             </View>
           </View>
@@ -156,7 +168,11 @@ export const DashboardScreen = ({ navigation }: any) => {
                       color: isPositive ? theme.colors.success : theme.colors.error,
                       fontWeight: 'bold'
                     }}>
-                      {isPositive ? '+' : ''}R$ {diff.toFixed(2)} ({isPositive ? '+' : ''}{percentage.toFixed(1)}%)
+                      {isValuesVisible ? (
+                        <>
+                          {isPositive ? '+' : ''}R$ {diff.toFixed(2)} ({isPositive ? '+' : ''}{percentage.toFixed(1)}%)
+                        </>
+                      ) : 'R$ ••••••'}
                     </Text>
                   );
                 })()
@@ -183,7 +199,7 @@ export const DashboardScreen = ({ navigation }: any) => {
           </ScrollView>
 
           {netWorthHistory.length > 1 && !netWorthHistory.some(d => isNaN(d.value) || isNaN(d.date.getTime())) && (
-            <NetWorthChart data={netWorthHistory} period={selectedPeriod} />
+            <NetWorthChart data={netWorthHistory} period={selectedPeriod} hideValues={!isValuesVisible} />
           )}
         </Card>
 
@@ -215,7 +231,7 @@ export const DashboardScreen = ({ navigation }: any) => {
         {categoryData.length > 0 && (
           <Card style={styles.chartCard}>
             <Text style={styles.cardTitle}>Gastos por Categoria</Text>
-            <AnimatedBarChart data={categoryData} />
+            <AnimatedBarChart data={categoryData} hideValues={!isValuesVisible} />
           </Card>
         )}
 
@@ -244,7 +260,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                   color={budget.status === 'exceeded' ? theme.colors.error : budget.status === 'warning' ? (theme.colors as any).warning : theme.colors.primary}
                 />
                 <Text style={styles.budgetAmount}>
-                  R$ {budget.spent.toFixed(2)} / R$ {budget.limitAmount.toFixed(2)}
+                  {formatValue(budget.spent)} / {formatValue(budget.limitAmount)}
                 </Text>
               </View>
             ))

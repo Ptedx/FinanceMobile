@@ -12,9 +12,11 @@ interface FinanceState {
   isLoading: boolean;
   error: string | null;
   isInitialized: boolean;
+  isValuesVisible: boolean;
 
   initialize: () => Promise<void>;
   retry: () => Promise<void>;
+  toggleValuesVisibility: () => void;
 
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>;
   updateExpense: (id: string, expense: Partial<Expense>) => Promise<void>;
@@ -56,6 +58,11 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   isLoading: false,
   error: null,
   isInitialized: false,
+  isValuesVisible: false,
+
+  toggleValuesVisibility: () => {
+    set(state => ({ isValuesVisible: !state.isValuesVisible }));
+  },
 
   initialize: async () => {
     set({ isLoading: true, error: null });
