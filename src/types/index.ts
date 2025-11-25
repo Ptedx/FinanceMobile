@@ -10,6 +10,18 @@ export interface Expense {
   paymentMethod: PaymentMethod;
   isRecurring: boolean;
   description?: string;
+  creditCardId?: string;
+  creditCard?: CreditCard;
+  createdAt: string;
+}
+
+export interface CreditCard {
+  id: string;
+  name: string;
+  closingDay: number;
+  dueDay: number;
+  limit: number;
+  last4Digits: string;
   createdAt: string;
 }
 
@@ -69,12 +81,9 @@ export interface BudgetProgress {
 export interface DashboardData {
   monthlyTotal: number;
   monthlyIncome: number;
-  budgetProgress: {
-    category: string;
-    spent: number;
-    limitAmount: number;
-  }[];
+  budgetProgress: BudgetProgress[];
   goalProgress: number;
   projection: number;
   availableBalance: number;
+  netWorth: number;
 }

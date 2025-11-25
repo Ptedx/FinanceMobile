@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Expense, Budget, Goal, Alert, BudgetProgress, Income } from '../types';
+import { Expense, Budget, Goal, Alert, BudgetProgress, Income, CreditCard } from '../types';
 import { db } from '../services/database';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 
@@ -9,6 +9,7 @@ interface FinanceState {
   budgets: Budget[];
   goals: Goal[];
   alerts: Alert[];
+  creditCards: CreditCard[];
   isLoading: boolean;
   error: string | null;
   isInitialized: boolean;
@@ -18,8 +19,8 @@ interface FinanceState {
   retry: () => Promise<void>;
   toggleValuesVisibility: () => void;
 
-  addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>;
-  updateExpense: (id: string, expense: Partial<Expense>) => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id' | 'createdAt'> & { creditCardId?: string }) => Promise<void>;
+  updateExpense: (id: string, expense: Partial<Expense> & { creditCardId?: string }) => Promise<void>;
   loadExpenses: (startDate?: string, endDate?: string) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
 
@@ -42,6 +43,11 @@ interface FinanceState {
   loadAlerts: (unreadOnly?: boolean) => Promise<void>;
   markAlertAsRead: (id: string) => Promise<void>;
 
+  fetchCreditCards: () => Promise<void>;
+  addCreditCard: (card: Omit<CreditCard, 'id' | 'createdAt'>) => Promise<void>;
+  updateCreditCard: (id: string, card: Partial<CreditCard>) => Promise<void>;
+  deleteCreditCard: (id: string) => Promise<void>;
+
   getBudgetProgress: () => BudgetProgress[];
   getMonthlyTotal: () => number;
   getMonthlyIncome: () => number;
@@ -55,6 +61,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   budgets: [],
   goals: [],
   alerts: [],
+  creditCards: [],
   isLoading: false,
   error: null,
   isInitialized: false,
@@ -79,6 +86,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         get().loadBudgets(currentMonth),
         get().loadGoals(),
         get().loadAlerts(true),
+        get().fetchCreditCards(),
       ]);
       set({ isInitialized: true });
     } catch (error) {
@@ -96,7 +104,6 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   addExpense: async (expense) => {
     const newExpense = await db.addExpense(expense);
     set(state => ({ expenses: [newExpense, ...state.expenses] }));
-
     get().checkBudgetAlerts();
   },
 
@@ -122,14 +129,13 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     const newIncome = await db.addIncome(income);
     set(state => ({ incomes: [newIncome, ...state.incomes] }));
 
-    // Apply goal allocations, if provided, only to selected active goals
     if (income.goalAllocations && income.goalAllocations.length > 0) {
       const { goals } = get();
       for (const alloc of income.goalAllocations) {
         const goal = goals.find(g => g.id === alloc.goalId);
         if (!goal) continue;
         if (goal.type !== 'save') continue;
-        if (goal.currentAmount >= goal.targetAmount) continue; // skip completed
+        if (goal.currentAmount >= goal.targetAmount) continue;
 
         const nextAmount = Math.min(goal.targetAmount, (goal.currentAmount || 0) + (alloc.amount || 0));
         await db.updateGoal(goal.id, { currentAmount: nextAmount });
@@ -144,26 +150,21 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     const { incomes, goals } = get();
     const oldIncome = incomes.find(i => i.id === id);
 
-    // Handle goal allocations update
     if (oldIncome && (oldIncome.goalAllocations || income.goalAllocations)) {
       const oldAllocations = oldIncome.goalAllocations || [];
       const newAllocations = income.goalAllocations || [];
 
-      // 1. Revert old allocations
       for (const alloc of oldAllocations) {
         const goal = goals.find(g => g.id === alloc.goalId);
         if (goal) {
           const newAmount = Math.max(0, goal.currentAmount - alloc.amount);
           await db.updateGoal(goal.id, { currentAmount: newAmount });
-          // Update local state immediately to reflect changes for next steps
           set(state => ({
             goals: state.goals.map(g => g.id === goal.id ? { ...g, currentAmount: newAmount } : g)
           }));
         }
       }
 
-      // 2. Apply new allocations
-      // Refresh goals from state as they might have been updated above
       const currentGoals = get().goals;
       for (const alloc of newAllocations) {
         const goal = currentGoals.find(g => g.id === alloc.goalId);
@@ -196,7 +197,6 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   addBudget: async (budget) => {
     const newBudget = await db.addBudget(budget);
     set(state => {
-      // Remove existing budget for same category if any (though backend handles this, frontend state should reflect)
       const filtered = state.budgets.filter(b => b.category !== budget.category);
       return { budgets: [...filtered, newBudget] };
     });
@@ -260,20 +260,64 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }));
   },
 
+  fetchCreditCards: async () => {
+    try {
+      const creditCards = await db.getCreditCards();
+      set({ creditCards });
+    } catch (error) {
+      console.error('Failed to fetch credit cards', error);
+    }
+  },
+
+  addCreditCard: async (card) => {
+    try {
+      set({ isLoading: true, error: null });
+      const newCard = await db.addCreditCard(card);
+      set(state => ({
+        creditCards: [...state.creditCards, newCard],
+        isLoading: false
+      }));
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
+  },
+
+  updateCreditCard: async (id, card) => {
+    try {
+      set({ isLoading: true, error: null });
+      const updatedCard = await db.updateCreditCard(id, card);
+      set(state => ({
+        creditCards: state.creditCards.map(c => c.id === id ? updatedCard : c),
+        isLoading: false
+      }));
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
+  },
+
+  deleteCreditCard: async (id) => {
+    try {
+      await db.deleteCreditCard(id);
+      set((state) => ({
+        creditCards: state.creditCards.filter((c) => c.id !== id),
+      }));
+    } catch (error) {
+      set({ error: 'Failed to delete credit card' });
+    }
+  },
+
   getBudgetProgress: () => {
     const { expenses, budgets } = get();
-
     return budgets.map(budget => {
       const spent = expenses
         .filter(e => e.category === budget.category)
         .reduce((sum, e) => sum + e.value, 0);
-
       const percentage = (spent / budget.limitAmount) * 100;
-
       let status: 'safe' | 'warning' | 'exceeded' = 'safe';
       if (percentage >= 100) status = 'exceeded';
       else if (percentage >= 80) status = 'warning';
-
       return {
         category: budget.category,
         limitAmount: budget.limitAmount,
@@ -296,7 +340,6 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   checkBudgetAlerts: () => {
     const budgetProgress = get().getBudgetProgress();
-
     budgetProgress.forEach(async (progress) => {
       if (progress.status === 'warning') {
         await get().addAlert({
@@ -323,6 +366,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       budgets: [],
       goals: [],
       alerts: [],
+      creditCards: [],
       isLoading: false,
       error: null,
       isInitialized: false,

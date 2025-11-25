@@ -1,10 +1,10 @@
-import { Expense, Budget, Goal, Alert, Income } from '../types';
+import { Expense, Budget, Goal, Alert, Income, CreditCard } from '../types';
 
 export interface IDatabaseService {
   init(): Promise<void>;
 
   addExpense(expense: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense>;
-  getExpenses(startDate?: string, endDate?: string): Promise<Expense[]>;
+  getExpenses(startDate?: string, endDate?: string, creditCardId?: string): Promise<Expense[]>;
   updateExpense(id: string, expense: Partial<Expense>): Promise<Expense>;
   deleteExpense(id: string): Promise<void>;
 
@@ -20,11 +20,16 @@ export interface IDatabaseService {
 
   addGoal(goal: Omit<Goal, 'id' | 'createdAt'>): Promise<Goal>;
   getGoals(): Promise<Goal[]>;
-  updateGoal(id: string, currentAmount: number): Promise<void>;
+  updateGoal(id: string, goal: Partial<Goal>): Promise<void>;
   deleteGoal(id: string): Promise<void>;
 
   addAlert(alert: Omit<Alert, 'id' | 'createdAt'>): Promise<Alert>;
   getAlerts(unreadOnly?: boolean): Promise<Alert[]>;
   markAlertAsRead(id: string): Promise<void>;
   clearOldAlerts(daysOld?: number): Promise<void>;
+
+  getCreditCards(): Promise<CreditCard[]>;
+  addCreditCard(card: Omit<CreditCard, 'id' | 'createdAt'>): Promise<CreditCard>;
+  updateCreditCard(id: string, card: Partial<CreditCard>): Promise<CreditCard>;
+  deleteCreditCard(id: string): Promise<void>;
 }

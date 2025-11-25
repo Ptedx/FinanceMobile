@@ -1,5 +1,5 @@
 import { IDatabaseService } from './IDatabaseService';
-import { Expense, Budget, Goal, Alert, Income } from '../types';
+import { Expense, Budget, Goal, Alert, Income, CreditCard } from '../types';
 import { AuthService } from './AuthService';
 import { Platform } from 'react-native';
 
@@ -37,10 +37,11 @@ export class APIDatabaseService implements IDatabaseService {
         });
     }
 
-    async getExpenses(startDate?: string, endDate?: string): Promise<Expense[]> {
+    async getExpenses(startDate?: string, endDate?: string, creditCardId?: string): Promise<Expense[]> {
         const query = new URLSearchParams();
         if (startDate) query.append('startDate', startDate);
         if (endDate) query.append('endDate', endDate);
+        if (creditCardId) query.append('creditCardId', creditCardId);
         return fetchWithAuth(`/expenses?${query.toString()}`);
     }
 
@@ -158,5 +159,27 @@ export class APIDatabaseService implements IDatabaseService {
             method: 'DELETE',
             body: JSON.stringify({ daysOld }),
         });
+    }
+
+    async getCreditCards(): Promise<CreditCard[]> {
+        return fetchWithAuth('/credit-cards');
+    }
+
+    async addCreditCard(card: Omit<CreditCard, 'id' | 'createdAt'>): Promise<CreditCard> {
+        return fetchWithAuth('/credit-cards', {
+            method: 'POST',
+            body: JSON.stringify(card),
+        });
+    }
+
+    async updateCreditCard(id: string, card: Partial<CreditCard>): Promise<CreditCard> {
+        return fetchWithAuth(`/credit-cards/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(card),
+        });
+    }
+
+    async deleteCreditCard(id: string): Promise<void> {
+        return fetchWithAuth(`/credit-cards/${id}`, { method: 'DELETE' });
     }
 }

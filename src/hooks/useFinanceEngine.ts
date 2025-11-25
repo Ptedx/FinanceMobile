@@ -12,7 +12,12 @@ export const useFinanceEngine = () => {
     const budgetProgress = getBudgetProgress();
 
     const totalBudget = budgets.reduce((sum, b) => sum + b.limitAmount, 0);
-    const availableBalance = monthlyIncome - monthlyTotal;
+
+    const debitExpenses = expenses.filter(e => !e.creditCardId).reduce((sum, e) => sum + e.value, 0);
+    const creditExpenses = expenses.filter(e => !!e.creditCardId).reduce((sum, e) => sum + e.value, 0);
+
+    const availableBalance = monthlyIncome - debitExpenses;
+    const netWorth = availableBalance - creditExpenses;
 
     // For now, projection equals available balance since we don't have future recurring items logic yet.
     const projection = availableBalance;
@@ -28,6 +33,7 @@ export const useFinanceEngine = () => {
       goalProgress: totalGoalProgress,
       projection,
       availableBalance,
+      netWorth,
     };
   }, [expenses, incomes, budgets, goals]);
 

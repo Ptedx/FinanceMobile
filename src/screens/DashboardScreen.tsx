@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { IconButton, FAB, useTheme, SegmentedButtons, Icon } from 'react-native-paper';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
@@ -21,12 +21,14 @@ import { ErrorRetryScreen } from './ErrorRetryScreen';
 export const DashboardScreen = ({ navigation }: any) => {
   const theme = useTheme();
   const { user } = useAuthStore();
-  const { alerts, markAlertAsRead, goals, isLoading, error, retry, isValuesVisible, toggleValuesVisibility } = useFinanceStore();
+  const { alerts, markAlertAsRead, goals, isLoading, error, retry, isValuesVisible, toggleValuesVisibility, creditCards, expenses } = useFinanceStore();
   const [selectedPeriod, setSelectedPeriod] = useState<'1D' | '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('7D');
 
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
   const { dashboardData, getSpendingInsights, getNetWorthHistory, getComparisonWithLastMonth } = useFinanceEngine();
+
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -39,8 +41,6 @@ export const DashboardScreen = ({ navigation }: any) => {
   const insights = getSpendingInsights();
   const comparison = getComparisonWithLastMonth();
   const netWorthHistory = getNetWorthHistory(selectedPeriod);
-
-  const [sheetVisible, setSheetVisible] = useState(false);
 
   const categoryData = Object.entries(insights.categoryBreakdown)
     .map(([category, amount]) => ({
@@ -126,19 +126,19 @@ export const DashboardScreen = ({ navigation }: any) => {
         <Card style={styles.summaryCard}>
           <Text style={styles.cardTitle}>Resumo do mês</Text>
 
-          {/* Row 1: Balances */}
+          {/* Row 1: Net Worth & Available Balance */}
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Saldo Atual</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.onSurface }]}>
-                {formatValue(dashboardData.availableBalance)}
+              <Text style={styles.summaryLabel}>Patrimônio</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.primary }]}>
+                {formatValue(dashboardData.netWorth)}
               </Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Projeção</Text>
-              <Text style={[styles.summaryValue, { color: (theme.colors as any).warning }]}>
-                {formatValue(dashboardData.projection)}
+              <Text style={styles.summaryLabel}>Saldo Disponível</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.onSurface }]}>
+                {formatValue(dashboardData.availableBalance)}
               </Text>
             </View>
           </View>
@@ -149,7 +149,7 @@ export const DashboardScreen = ({ navigation }: any) => {
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Receitas</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.primary }]}>
+              <Text style={[styles.summaryValue, { color: (theme.colors as any).success }]}>
                 {formatValue(dashboardData.monthlyIncome)}
               </Text>
             </View>
@@ -161,6 +161,64 @@ export const DashboardScreen = ({ navigation }: any) => {
               </Text>
             </View>
           </View>
+        </Card>
+
+        <Card style={styles.summaryCard}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+            <Text style={{ ...typography.h3, color: theme.colors.onSurface, marginBottom: 0 }}>Meus Cartões</Text>
+            <IconButton
+              icon="plus"
+              size={20}
+              onPress={() => navigation.navigate('AddCreditCard')}
+            />
+          </View>
+
+          {creditCards.length === 0 ? (
+            <Text style={styles.emptyText}>Nenhum cartão cadastrado.</Text>
+          ) : (
+            creditCards.map(card => {
+              const invoice = expenses
+                .filter(e =>
+                  e.creditCardId === card.id &&
+                  new Date(e.date).getMonth() === new Date().getMonth() &&
+                  new Date(e.date).getFullYear() === new Date().getFullYear()
+                )
+                .reduce((sum, e) => sum + e.value, 0);
+
+              const percentage = (invoice / card.limit) * 100;
+              const progress = Math.min(percentage / 100, 1);
+
+              return (
+                <TouchableOpacity
+                  key={card.id}
+                  style={{ marginBottom: spacing.md }}
+                  onPress={() => navigation.navigate('AddCreditCard', { card: card })}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ ...typography.body, color: theme.colors.onSurface, fontWeight: '500' }}>
+                      {card.name} {card.last4Digits ? `•••• ${card.last4Digits}` : ''}
+                    </Text>
+                    <Text style={{ ...typography.body, color: theme.colors.onSurface }}>
+                      {formatValue(invoice)} <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>/ {formatValue(card.limit)}</Text>
+                    </Text>
+                  </View>
+                  <ProgressBar
+                    value={invoice}
+                    max={card.limit}
+                    color={theme.colors.primary}
+                  />
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                    <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>
+                      Fecha dia {card.closingDay}
+                    </Text>
+                    <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>
+                      Vence dia {card.dueDay}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </Card>
 
         <Card style={styles.chartCard}>
@@ -178,7 +236,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                   return (
                     <Text style={{
                       ...typography.bodySmall,
-                      color: isPositive ? theme.colors.success : theme.colors.error,
+                      color: isPositive ? (theme.colors as any).success : theme.colors.error,
                       fontWeight: 'bold'
                     }}>
                       {isValuesVisible ? (
@@ -211,9 +269,11 @@ export const DashboardScreen = ({ navigation }: any) => {
             />
           </ScrollView>
 
-          {netWorthHistory.length > 1 && !netWorthHistory.some(d => isNaN(d.value) || isNaN(d.date.getTime())) && (
-            <NetWorthChart data={netWorthHistory} period={selectedPeriod} hideValues={!isValuesVisible} />
-          )}
+          {
+            netWorthHistory.length > 1 && !netWorthHistory.some(d => isNaN(d.value) || isNaN(d.date.getTime())) && (
+              <NetWorthChart data={netWorthHistory} period={selectedPeriod} hideValues={!isValuesVisible} />
+            )
+          }
         </Card>
 
         {activeGoals.length > 0 && (
@@ -231,7 +291,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                   value={goal.currentAmount}
                   max={goal.targetAmount}
                   showPercentage={false}
-                  color={theme.colors.success}
+                  color={(theme.colors as any).success}
                 />
                 <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant, marginTop: 4, fontStyle: 'italic' }}>
                   {getMotivationalMessage(goal.progress)}

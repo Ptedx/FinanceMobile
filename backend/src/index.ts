@@ -164,7 +164,7 @@ app.put('/users/preferences', authMiddleware, async (req: AuthRequest, res) => {
 
 // Expenses
 app.get('/expenses', authMiddleware, async (req: AuthRequest, res) => {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, creditCardId } = req.query;
     const where: any = { userId: req.user!.userId };
 
     if (startDate && endDate) {
@@ -172,6 +172,10 @@ app.get('/expenses', authMiddleware, async (req: AuthRequest, res) => {
             gte: new Date(startDate as string),
             lte: new Date(endDate as string),
         };
+    }
+
+    if (creditCardId) {
+        where.creditCardId = creditCardId as string;
     }
 
     const expenses = await prisma.expense.findMany({

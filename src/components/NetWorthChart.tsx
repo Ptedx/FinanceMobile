@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+// Force rebuild
 import { View, Dimensions, StyleSheet, PanResponder, GestureResponderEvent } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import Svg, { Path, Line, Text as SvgText, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -14,9 +15,10 @@ interface NetWorthData {
 interface NetWorthChartProps {
     data: NetWorthData[];
     period: string;
+    hideValues?: boolean;
 }
 
-export const NetWorthChart = ({ data, period }: NetWorthChartProps) => {
+export const NetWorthChart = ({ data, period, hideValues = false }: NetWorthChartProps) => {
     const theme = useTheme();
     const screenWidth = Dimensions.get('window').width;
     const chartHeight = 250;
@@ -35,23 +37,11 @@ export const NetWorthChart = ({ data, period }: NetWorthChartProps) => {
             .sort((a, b) => a.date.getTime() - b.date.getTime());
     }, [data]);
 
-    if (validData.length < 2) {
-        return (
-            <View
-                style={[styles.container, { height: chartHeight, justifyContent: 'center', alignItems: 'center' }]}
-                accessible={true}
-                accessibilityLabel="Gráfico indisponível. Dados insuficientes."
-            >
-                <Text style={{ color: theme.colors.onSurfaceVariant }}>Dados insuficientes para o gráfico</Text>
-            </View>
-        );
-    }
-
     // 2. Scaling Logic
-    const xMin = validData[0].date.getTime();
-    const xMax = validData[validData.length - 1].date.getTime();
-    const yMin = Math.min(...validData.map(d => d.value));
-    const yMax = Math.max(...validData.map(d => d.value));
+    const xMin = validData.length > 0 ? validData[0].date.getTime() : 0;
+    const xMax = validData.length > 0 ? validData[validData.length - 1].date.getTime() : 0;
+    const yMin = validData.length > 0 ? Math.min(...validData.map(d => d.value)) : 0;
+    const yMax = validData.length > 0 ? Math.max(...validData.map(d => d.value)) : 0;
 
     const yRange = yMax - yMin || 1;
     const yPadding = yRange * 0.1;
@@ -59,6 +49,7 @@ export const NetWorthChart = ({ data, period }: NetWorthChartProps) => {
     const effectiveYMax = yMax + yPadding;
 
     const scaleX = (dateMs: number) => {
+        if (xMax === xMin) return padding.left;
         return padding.left + ((dateMs - xMin) / (xMax - xMin)) * plotWidth;
     };
 
@@ -121,6 +112,18 @@ export const NetWorthChart = ({ data, period }: NetWorthChartProps) => {
         [validData] // Recreate when data changes to avoid stale closures
     );
 
+    if (validData.length < 2) {
+        return (
+            <View
+                style={[styles.container, { height: chartHeight, justifyContent: 'center', alignItems: 'center' }]}
+                accessible={true}
+                accessibilityLabel="Gráfico indisponível. Dados insuficientes."
+            >
+                <Text style={{ color: theme.colors.onSurfaceVariant }}>Dados insuficientes para o gráfico</Text>
+            </View>
+        );
+    }
+
     // 4. Path Generation
     const generateLinePath = () => {
         return validData.map((d, i) => {
@@ -142,7 +145,7 @@ export const NetWorthChart = ({ data, period }: NetWorthChartProps) => {
     const areaPath = generateAreaPath();
 
     // 5. Formatting & Ticks
-    const formatYLabel = (val: number) => `R$${(val / 1000).toFixed(1)}k`;
+    const formatYLabel = (val: number) => hideValues ? '••••' : `R$${(val / 1000).toFixed(1)}k`;
 
     const formatXLabel = (date: Date) => {
         if (period === '1D') return format(date, 'HH:mm', { locale: ptBR });
@@ -154,7 +157,7 @@ export const NetWorthChart = ({ data, period }: NetWorthChartProps) => {
         if (period === '1D') return format(date, "dd 'de' MMMM, HH:mm", { locale: ptBR });
         return format(date, "dd 'de' MMMM", { locale: ptBR });
     };
-    const formatTooltipValue = (val: number) => `R$ ${val.toFixed(2)}`;
+    const formatTooltipValue = (val: number) => hideValues ? 'R$ ••••••' : `R$ ${val.toFixed(2)}`;
 
     // Generate fixed X-axis ticks (3 ticks: start, middle, end)
     const xTicks = [

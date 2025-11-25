@@ -18,13 +18,22 @@ const expenseSchema = z.object({
   category: z.string().min(1, 'Categoria é obrigatória'),
   paymentMethod: z.string().min(1, 'Método de pagamento é obrigatório'),
   isRecurring: z.boolean(),
+  creditCardId: z.string().optional(),
+}).refine((data) => {
+  if (data.paymentMethod === 'credit' && !data.creditCardId) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Selecione um cartão de crédito",
+  path: ["creditCardId"],
 });
 
 type ExpenseFormData = z.infer<typeof expenseSchema>;
 
 export const AddExpenseScreen = ({ navigation, route }: any) => {
   const theme = useTheme();
-  const { addExpense, updateExpense, deleteExpense } = useFinanceStore();
+  const { addExpense, updateExpense, deleteExpense, creditCards } = useFinanceStore();
   const [date, setDate] = useState(new Date());
 
   const expenseToEdit = route.params?.expense;
@@ -46,7 +55,7 @@ export const AddExpenseScreen = ({ navigation, route }: any) => {
     }
   }, [isEditing, expenseToEdit, navigation]);
 
-  const { control, handleSubmit, formState: { errors } } = useForm<ExpenseFormData>({
+  const { control, handleSubmit, watch, formState: { errors } } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       value: expenseToEdit ? formatCurrency(expenseToEdit.value) : '',
@@ -54,8 +63,11 @@ export const AddExpenseScreen = ({ navigation, route }: any) => {
       category: expenseToEdit?.category || '',
       paymentMethod: expenseToEdit?.paymentMethod || '',
       isRecurring: expenseToEdit?.isRecurring || false,
+      creditCardId: expenseToEdit?.creditCardId || undefined,
     },
   });
+
+  const selectedPaymentMethod = watch('paymentMethod');
 
   const handleDelete = async () => {
     if (Platform.OS === 'web') {
@@ -105,6 +117,7 @@ export const AddExpenseScreen = ({ navigation, route }: any) => {
       paymentMethod: data.paymentMethod as PaymentMethod,
       isRecurring: data.isRecurring,
       description: data.description,
+      creditCardId: data.paymentMethod === 'credit' ? data.creditCardId : undefined,
     };
 
     try {
@@ -230,6 +243,48 @@ export const AddExpenseScreen = ({ navigation, route }: any) => {
             )}
           />
           {errors.paymentMethod && <Text style={styles.errorText}>{errors.paymentMethod.message}</Text>}
+
+          {selectedPaymentMethod === 'credit' && (
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={styles.sectionTitle}>Cartão de Crédito</Text>
+              <Controller
+                control={control}
+                name="creditCardId"
+                render={({ field: { onChange, value } }) => (
+                  <View style={styles.categoriesGrid}>
+                    {creditCards.map(card => (
+                      <TouchableOpacity
+                        key={card.id}
+                        style={[
+                          styles.categoryChip,
+                          value === card.id && {
+                            backgroundColor: theme.colors.primary + '20',
+                            borderColor: theme.colors.primary,
+                          },
+                        ]}
+                        onPress={() => onChange(card.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.categoryLabel,
+                            value === card.id && { color: theme.colors.primary, fontWeight: 'bold' },
+                          ]}
+                        >
+                          {card.name} {card.last4Digits ? `•••• ${card.last4Digits}` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                    {creditCards.length === 0 && (
+                      <Text style={{ color: theme.colors.error }}>
+                        Nenhum cartão cadastrado. Adicione um cartão primeiro.
+                      </Text>
+                    )}
+                  </View>
+                )}
+              />
+              {errors.creditCardId && <Text style={styles.errorText}>{errors.creditCardId.message}</Text>}
+            </View>
+          )}
         </Card>
 
         <Card style={styles.card}>

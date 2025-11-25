@@ -11,6 +11,7 @@ import { useAuthStore } from '../store/authStore';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { AddExpenseScreen } from '../screens/AddExpenseScreen';
 import { AddIncomeScreen } from '../screens/AddIncomeScreen';
+import { AddCreditCardScreen } from '../screens/AddCreditCardScreen';
 import { BudgetsScreen } from '../screens/BudgetsScreen';
 import { GoalsScreen } from '../screens/GoalsScreen';
 import { TimelineScreen } from '../screens/TimelineScreen';
@@ -177,6 +178,14 @@ export const AppNavigator = () => {
             component={AlertsScreen}
             options={{
               title: 'Alertas',
+            }}
+          />
+          <Stack.Screen
+            name="AddCreditCard"
+            component={AddCreditCardScreen}
+            options={{
+              title: 'Adicionar Cartão',
+              presentation: 'modal',
             }}
           />
         </Stack.Navigator>
