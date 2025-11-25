@@ -76,13 +76,26 @@ export const DashboardScreen = ({ navigation }: any) => {
     return `${prefix}${value.toFixed(2)}`;
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    const userName = user?.name?.split(' ')[0] || 'Usuário';
+
+    if (hour >= 5 && hour < 12) {
+      return `Bom dia, ${userName}!`;
+    } else if (hour >= 12 && hour < 18) {
+      return `Boa tarde, ${userName}!`;
+    } else {
+      return `Boa noite, ${userName}!`;
+    }
+  };
+
   const styles = createStyles(theme);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0] || 'Usuário'}!</Text>
+          <Text style={styles.greeting}>{getGreeting()}</Text>
           <Text style={styles.date}>
             {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
           </Text>

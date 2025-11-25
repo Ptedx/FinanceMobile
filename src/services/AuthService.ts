@@ -62,5 +62,22 @@ export const AuthService = {
         if (!response.ok) {
             console.error('Failed to update theme preference');
         }
+    },
+
+    async getMe() {
+        const token = await this.getToken();
+        if (!token) return null;
+
+        const response = await fetch(`${API_URL}/auth/me`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch user details');
+        }
+
+        return await response.json();
     }
 };

@@ -53,10 +53,18 @@ export const useAuthStore = create<AuthState>((set) => ({
         try {
             const token = await AuthService.getToken();
             if (token) {
-                // Ideally we should validate the token with the backend here
-                // For now, we'll assume if token exists, we are logged in
-                // You might want to add a /me endpoint to verify and get user details
-                set({ isAuthenticated: true, isLoading: false });
+                try {
+                    const user = await AuthService.getMe();
+                    set({ isAuthenticated: true, user, isLoading: false });
+                    if (user.themePreference) {
+                        useThemeStore.getState().setDarkMode(user.themePreference === 'dark');
+                    }
+                } catch (error) {
+                    // Token might be invalid or expired
+                    console.error('Error fetching user details:', error);
+                    set({ isAuthenticated: false, user: null, isLoading: false });
+                    await AuthService.logout();
+                }
             } else {
                 set({ isAuthenticated: false, isLoading: false });
             }

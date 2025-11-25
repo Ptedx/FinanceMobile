@@ -119,6 +119,24 @@ app.post('/auth/login', async (req, res) => {
     }
 });
 
+app.get('/auth/me', authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.user!.userId },
+            select: { id: true, name: true, email: true, themePreference: true }
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json(user);
+    } catch (error: any) {
+        console.error('Get Me Error:', error);
+        res.status(500).json({ error: 'Error fetching user details', details: error.message });
+    }
+});
+
 app.put('/users/preferences', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { themePreference } = req.body as UpdatePreferencesRequest;
