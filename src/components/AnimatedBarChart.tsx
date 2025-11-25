@@ -17,9 +17,10 @@ interface BarData {
 
 interface AnimatedBarChartProps {
   data: BarData[];
+  hideValues?: boolean;
 }
 
-export const AnimatedBarChart: React.FC<AnimatedBarChartProps> = ({ data }) => {
+export const AnimatedBarChart: React.FC<AnimatedBarChartProps> = ({ data, hideValues = false }) => {
   const theme = useTheme();
   const s = styles(theme);
   const total = data.reduce((sum, item) => sum + item.value, 0);
@@ -42,6 +43,7 @@ export const AnimatedBarChart: React.FC<AnimatedBarChartProps> = ({ data }) => {
             width={width}
             color={item.color}
             delay={index * 100}
+            hideValues={hideValues}
           />
         );
       })}
@@ -56,6 +58,7 @@ interface AnimatedBarProps {
   width: number;
   color: string;
   delay: number;
+  hideValues: boolean;
 }
 
 const AnimatedBar: React.FC<AnimatedBarProps> = ({
@@ -65,6 +68,7 @@ const AnimatedBar: React.FC<AnimatedBarProps> = ({
   width,
   color,
   delay,
+  hideValues,
 }) => {
   const theme = useTheme();
   const s = styles(theme);
@@ -117,7 +121,7 @@ const AnimatedBar: React.FC<AnimatedBarProps> = ({
         />
       </View>
       <Animated.Text style={[s.barValue, animatedTextStyle]}>
-        R$ {value.toFixed(2)}
+        {hideValues ? 'R$ ••••••' : `R$ ${value.toFixed(2)}`}
       </Animated.Text>
     </View>
   );
