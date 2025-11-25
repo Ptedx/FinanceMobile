@@ -20,6 +20,7 @@ model User {
   goals     Goal[]
   alerts    Alert[]
   creditCards CreditCard[]
+  invoicePayments InvoicePayment[]
   themePreference String @default("light")
 }
 
@@ -111,4 +112,16 @@ model CreditCard {
   userId      String
   user        User     @relation(fields: [userId], references: [id])
   expenses    Expense[]
+  invoicePayments InvoicePayment[]
+}
+
+model InvoicePayment {
+  id           String     @id @default(uuid())
+  creditCardId String
+  creditCard   CreditCard @relation(fields: [creditCardId], references: [id])
+  amount       Float
+  date         DateTime
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  createdAt    DateTime   @default(now())
 }

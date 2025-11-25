@@ -10,6 +10,7 @@ import { CreditCardTransactions } from '../components/CreditCardTransactions';
 import { useFinanceStore } from '../store/financeStore';
 import { spacing, typography } from '../theme';
 import { formatCurrency, parseCurrency } from '../utils/formatters';
+import { getInvoiceDates, isExpenseInInvoice } from '../utils/creditCardUtils';
 
 const creditCardSchema = z.object({
     name: z.string().min(1, 'Nome é obrigatório'),
@@ -35,13 +36,107 @@ type CreditCardFormData = z.infer<typeof creditCardSchema>;
 
 export const AddCreditCardScreen = ({ navigation, route }: any) => {
     const theme = useTheme();
-    const { addCreditCard, updateCreditCard, deleteCreditCard } = useFinanceStore();
+    const { addCreditCard, updateCreditCard, deleteCreditCard, expenses, invoicePayments, payInvoice, cancelInvoicePayment } = useFinanceStore();
     const [showClosingDatePicker, setShowClosingDatePicker] = useState(false);
     const [showDueDatePicker, setShowDueDatePicker] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const cardToEdit = route.params?.card;
     const isEditing = !!cardToEdit;
+
+    // Invoice Calculation Logic
+    const getInvoiceData = () => {
+        if (!cardToEdit) return { total: 0, status: 'none', payment: null };
+
+        const { startDate, endDate } = getInvoiceDates(cardToEdit.closingDay);
+
+        const currentExpenses = expenses.filter(e =>
+            e.creditCardId === cardToEdit.id &&
+            isExpenseInInvoice(new Date(e.date), startDate, endDate)
+        );
+
+        const totalExpenses = currentExpenses.reduce((sum, e) => sum + e.value, 0);
+
+        // Find payments made in this invoice period (or covering it)
+        // For simplicity, let's look for payments made within the invoice dates OR slightly after (for closed invoices)
+        // But since we don't link payments to invoices, let's just look for payments in the current month/cycle.
+        // Actually, if I pay today, the payment date is today.
+        // If today is in the cycle, it counts.
+        // Let's filter payments that fall within the calculated start/end dates.
+
+        const currentPayments = invoicePayments.filter(p =>
+            p.creditCardId === cardToEdit.id &&
+            isExpenseInInvoice(new Date(p.date), startDate, endDate)
+        );
+
+        const totalPaid = currentPayments.reduce((sum, p) => sum + p.amount, 0);
+        const remaining = totalExpenses - totalPaid;
+
+        // We assume the last payment is the one to cancel if needed, or we list them.
+        // For the "Cancel Payment" button, we'll target the most recent payment in this period.
+        const lastPayment = currentPayments.length > 0 ? currentPayments[currentPayments.length - 1] : null;
+
+        return {
+            total: totalExpenses,
+            paid: totalPaid,
+            remaining: Math.max(0, remaining),
+            status: remaining <= 0.01 && totalExpenses > 0 ? 'paid' : (totalExpenses === 0 ? 'empty' : 'open'),
+            lastPayment
+        };
+    };
+
+    const invoiceData = getInvoiceData();
+
+    const handlePayInvoice = () => {
+        Alert.alert(
+            "Pagar Fatura",
+            `Deseja confirmar o pagamento da fatura no valor de ${formatCurrency(invoiceData.remaining)}?`,
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Confirmar",
+                    onPress: async () => {
+                        try {
+                            setIsLoading(true);
+                            await payInvoice(cardToEdit.id, invoiceData.remaining, new Date().toISOString());
+                            Alert.alert("Sucesso", "Pagamento realizado com sucesso!");
+                        } catch (error) {
+                            Alert.alert("Erro", "Não foi possível realizar o pagamento.");
+                        } finally {
+                            setIsLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleCancelPayment = () => {
+        if (!invoiceData.lastPayment) return;
+
+        Alert.alert(
+            "Cancelar Pagamento",
+            "Deseja cancelar o último pagamento realizado?",
+            [
+                { text: "Não", style: "cancel" },
+                {
+                    text: "Sim, Cancelar",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            setIsLoading(true);
+                            await cancelInvoicePayment(invoiceData.lastPayment!.id);
+                            Alert.alert("Sucesso", "Pagamento cancelado.");
+                        } catch (error) {
+                            Alert.alert("Erro", "Não foi possível cancelar o pagamento.");
+                        } finally {
+                            setIsLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     const { control, handleSubmit, setValue, watch, formState: { errors } } = useForm<CreditCardFormData>({
         resolver: zodResolver(creditCardSchema),
@@ -279,6 +374,51 @@ export const AddCreditCardScreen = ({ navigation, route }: any) => {
                     {errors.last4Digits && <Text style={styles.errorText}>{errors.last4Digits.message}</Text>}
                 </Card>
 
+                {isEditing && (
+                    <Card style={styles.card}>
+                        <Text style={styles.sectionTitle}>Fatura Atual</Text>
+                        <View style={styles.invoiceRow}>
+                            <Text style={styles.invoiceLabel}>Total da Fatura:</Text>
+                            <Text style={styles.invoiceValue}>{formatCurrency(invoiceData.total)}</Text>
+                        </View>
+                        {invoiceData.paid > 0 && (
+                            <View style={styles.invoiceRow}>
+                                <Text style={styles.invoiceLabel}>Pago:</Text>
+                                <Text style={[styles.invoiceValue, { color: theme.colors.primary }]}>-{formatCurrency(invoiceData.paid)}</Text>
+                            </View>
+                        )}
+                        <View style={[styles.invoiceRow, { marginTop: spacing.xs }]}>
+                            <Text style={[styles.invoiceLabel, { fontWeight: 'bold' }]}>Restante:</Text>
+                            <Text style={[styles.invoiceValue, { fontWeight: 'bold', color: invoiceData.remaining > 0 ? theme.colors.error : theme.colors.primary }]}>
+                                {formatCurrency(invoiceData.remaining)}
+                            </Text>
+                        </View>
+
+                        <View style={styles.actionButtons}>
+                            {invoiceData.remaining > 0 && (
+                                <Button
+                                    mode="contained"
+                                    onPress={handlePayInvoice}
+                                    style={styles.payButton}
+                                    icon="credit-card-check"
+                                >
+                                    Pagar Fatura
+                                </Button>
+                            )}
+                            {invoiceData.paid > 0 && (
+                                <Button
+                                    mode="outlined"
+                                    onPress={handleCancelPayment}
+                                    style={styles.cancelButton}
+                                    textColor={theme.colors.error}
+                                >
+                                    Cancelar Pagamento
+                                </Button>
+                            )}
+                        </View>
+                    </Card>
+                )}
+
                 {!isEditing && (
                     <Button
                         mode="contained"
@@ -339,5 +479,30 @@ const createStyles = (theme: any) => StyleSheet.create({
     },
     submitButtonContent: {
         paddingVertical: spacing.sm,
+    },
+    invoiceRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+    },
+    invoiceLabel: {
+        ...typography.body,
+        color: theme.colors.onSurfaceVariant,
+    },
+    invoiceValue: {
+        ...typography.body,
+        color: theme.colors.onSurface,
+        fontWeight: '500',
+    },
+    actionButtons: {
+        marginTop: spacing.md,
+        gap: spacing.sm,
+    },
+    payButton: {
+        backgroundColor: theme.colors.primary,
+    },
+    cancelButton: {
+        borderColor: theme.colors.error,
     },
 });

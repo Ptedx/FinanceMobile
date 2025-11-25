@@ -625,6 +625,82 @@ app.delete('/credit-cards/:id', authMiddleware, async (req: AuthRequest, res) =>
     }
 });
 
+app.post('/credit-cards/:id/pay-invoice', authMiddleware, async (req: AuthRequest, res) => {
+    const { amount, date } = req.body;
+    try {
+        const payment = await prisma.invoicePayment.create({
+            data: {
+                creditCardId: req.params.id,
+                amount,
+                date: new Date(date),
+                userId: req.user!.userId,
+            }
+        });
+        res.json(payment);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error paying invoice', details: error.message });
+    }
+});
+
+app.delete('/credit-cards/:id/invoice-payment', authMiddleware, async (req: AuthRequest, res) => {
+    // We might want to pass the payment ID instead of just card ID, 
+    // but for now let's assume we might want to delete the last payment or specific one.
+    // Actually, the user requirement says "cancelar o pagamento", implying the most recent one or a specific one.
+    // Let's change the route to accept payment ID or handle "last payment" logic if needed.
+    // But typically DELETE should be on a specific resource ID.
+    // However, the prompt says "cancelar o pagamento, caso o usuário tenha clicado sem querer".
+    // This usually implies "Undo".
+    // Let's accept a query param or body for paymentId, or just delete the last one for this card/month?
+    // Safer to delete by ID. But the UI might just show "Undo" immediately after.
+    // Let's stick to deleting by ID.
+    // Wait, the prompt says "cancelar o pagamento".
+    // I'll implement DELETE /invoice-payments/:id instead?
+    // Or DELETE /credit-cards/:cardId/invoice-payment/:paymentId
+
+    // Let's go with DELETE /invoice-payments/:id for simplicity if I can.
+    // But I'll stick to the plan: DELETE /credit-cards/:id/invoice-payment
+    // I'll expect a paymentId in the body or query, or just delete the most recent one if not provided?
+    // Let's require paymentId in the query or body.
+
+    const { paymentId } = req.body; // or query
+
+    try {
+        if (paymentId) {
+            await prisma.invoicePayment.delete({
+                where: { id: paymentId, userId: req.user!.userId }
+            });
+        } else {
+            // Delete the most recent one for this card?
+            const lastPayment = await prisma.invoicePayment.findFirst({
+                where: { creditCardId: req.params.id, userId: req.user!.userId },
+                orderBy: { createdAt: 'desc' }
+            });
+            if (lastPayment) {
+                await prisma.invoicePayment.delete({
+                    where: { id: lastPayment.id }
+                });
+            } else {
+                return res.status(404).json({ error: 'No payment found to cancel' });
+            }
+        }
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error canceling invoice payment', details: error.message });
+    }
+});
+
+app.get('/credit-cards/:id/invoice-payments', authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        const payments = await prisma.invoicePayment.findMany({
+            where: { creditCardId: req.params.id, userId: req.user!.userId },
+            orderBy: { date: 'desc' }
+        });
+        res.json(payments);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error fetching invoice payments', details: error.message });
+    }
+});
+
 
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);

@@ -23,7 +23,7 @@ import { ErrorRetryScreen } from './ErrorRetryScreen';
 export const DashboardScreen = ({ navigation }: any) => {
   const theme = useTheme();
   const { user } = useAuthStore();
-  const { alerts, markAlertAsRead, goals, isLoading, error, retry, isValuesVisible, toggleValuesVisibility, creditCards, expenses, incomes } = useFinanceStore();
+  const { alerts, markAlertAsRead, goals, isLoading, error, retry, isValuesVisible, toggleValuesVisibility, creditCards, expenses, incomes, invoicePayments } = useFinanceStore();
   const [selectedPeriod, setSelectedPeriod] = useState<'1D' | '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('7D');
 
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
@@ -198,6 +198,12 @@ export const DashboardScreen = ({ navigation }: any) => {
                       {formatCurrency(expenses.filter(e => !!e.creditCardId && new Date(e.date).getMonth() === new Date().getMonth()).reduce((sum, e) => sum + e.value, 0))}
                     </Text>
                   </View>
+                  <View style={{ alignItems: 'center', marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: theme.colors.outline }}>
+                    <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>Restante após pgto faturas:</Text>
+                    <Text style={{ ...typography.caption, color: 'rgb(186, 26, 26)', fontWeight: 'bold' }}>
+                      {formatCurrency(Math.max(0, dashboardData.monthlyTotal - dashboardData.monthlyInvoicePayments))}
+                    </Text>
+                  </View>
                   <Text style={{ ...typography.caption, color: theme.colors.outline, textAlign: 'center', marginTop: 4, fontSize: 10 }}>
                     (Total do Mês)
                   </Text>
@@ -230,7 +236,23 @@ export const DashboardScreen = ({ navigation }: any) => {
                 )
                 .reduce((sum, e) => sum + e.value, 0);
 
-              const percentage = (invoice / card.limit) * 100;
+              const { invoicePayments } = useFinanceStore.getState(); // Or better, get it from the hook above if added
+              // Actually, I should add invoicePayments to the destructuring at the top of the component
+              // But for this chunk, I'll access it from props if available or store.
+              // Wait, I can't easily change the top of the file in this chunk.
+              // I'll check if `invoicePayments` is already destructured.
+              // Yes, line 26: const { ..., invoicePayments, ... } = useFinanceStore();
+
+              const payments = invoicePayments
+                .filter(p =>
+                  p.creditCardId === card.id &&
+                  isExpenseInInvoice(new Date(p.date), startDate, endDate)
+                )
+                .reduce((sum, p) => sum + p.amount, 0);
+
+              const remainingInvoice = Math.max(0, invoice - payments);
+
+              const percentage = (remainingInvoice / card.limit) * 100;
               const progress = Math.min(percentage / 100, 1);
 
               return (
@@ -243,12 +265,19 @@ export const DashboardScreen = ({ navigation }: any) => {
                     <Text style={{ ...typography.body, color: theme.colors.onSurface, fontWeight: '500' }}>
                       {card.name} {card.last4Digits ? `•••• ${card.last4Digits}` : ''}
                     </Text>
-                    <Text style={{ ...typography.body, color: theme.colors.onSurface }}>
-                      {formatValue(invoice)} <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>/ {formatValue(card.limit)}</Text>
-                    </Text>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ ...typography.body, color: theme.colors.onSurface }}>
+                        {formatValue(remainingInvoice)} <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>/ {formatValue(card.limit)}</Text>
+                      </Text>
+                      {payments > 0 && (
+                        <Text style={{ ...typography.caption, color: theme.colors.primary }}>
+                          Restante de R$ {formatValue(invoice)}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                   <ProgressBar
-                    value={invoice}
+                    value={remainingInvoice}
                     max={card.limit}
                     color={theme.colors.primary}
                   />

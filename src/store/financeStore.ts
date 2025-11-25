@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Expense, Budget, Goal, Alert, BudgetProgress, Income, CreditCard } from '../types';
+import { Expense, Budget, Goal, Alert, BudgetProgress, Income, CreditCard, InvoicePayment } from '../types';
 import { db } from '../services/database';
 import { startOfMonth, endOfMonth, format, subMonths } from 'date-fns';
 
@@ -9,50 +9,11 @@ interface FinanceState {
   budgets: Budget[];
   goals: Goal[];
   alerts: Alert[];
-  creditCards: CreditCard[];
-  isLoading: boolean;
-  error: string | null;
-  isInitialized: boolean;
-  isValuesVisible: boolean;
+  invoicePayments: InvoicePayment[];
 
-  initialize: () => Promise<void>;
-  retry: () => Promise<void>;
-  toggleValuesVisibility: () => void;
-
-  addExpense: (expense: Omit<Expense, 'id' | 'createdAt'> & { creditCardId?: string }) => Promise<void>;
-  updateExpense: (id: string, expense: Partial<Expense> & { creditCardId?: string }) => Promise<void>;
-  loadExpenses: (startDate?: string, endDate?: string) => Promise<void>;
-  deleteExpense: (id: string) => Promise<void>;
-
-  addIncome: (income: Omit<Income, 'id' | 'createdAt'>) => Promise<void>;
-  updateIncome: (id: string, income: Partial<Income>) => Promise<void>;
-  loadIncomes: (startDate?: string, endDate?: string) => Promise<void>;
-  deleteIncome: (id: string) => Promise<void>;
-
-  addBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => Promise<void>;
-  updateBudget: (id: string, budget: Partial<Budget>) => Promise<void>;
-  deleteBudget: (id: string) => Promise<void>;
-  loadBudgets: (month: string) => Promise<void>;
-
-  addGoal: (goal: Omit<Goal, 'id' | 'createdAt'>) => Promise<void>;
-  loadGoals: () => Promise<void>;
-  updateGoal: (id: string, goal: Partial<Goal>) => Promise<void>;
-  deleteGoal: (id: string) => Promise<void>;
-
-  addAlert: (alert: Omit<Alert, 'id' | 'createdAt'>) => Promise<void>;
-  loadAlerts: (unreadOnly?: boolean) => Promise<void>;
-  markAlertAsRead: (id: string) => Promise<void>;
-
-  fetchCreditCards: () => Promise<void>;
-  addCreditCard: (card: Omit<CreditCard, 'id' | 'createdAt'>) => Promise<void>;
-  updateCreditCard: (id: string, card: Partial<CreditCard>) => Promise<void>;
-  deleteCreditCard: (id: string) => Promise<void>;
-
-  getBudgetProgress: () => BudgetProgress[];
-  getMonthlyTotal: () => number;
-  getMonthlyIncome: () => number;
-  checkBudgetAlerts: () => void;
-  reset: () => void;
+  payInvoice: (cardId: string, amount: number, date: string) => Promise<void>;
+  cancelInvoicePayment: (paymentId: string) => Promise<void>;
+  loadInvoicePayments: (cardId: string) => Promise<void>;
 }
 
 export const useFinanceStore = create<FinanceState>((set, get) => ({
@@ -62,6 +23,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   goals: [],
   alerts: [],
   creditCards: [],
+  invoicePayments: [],
   isLoading: false,
   error: null,
   isInitialized: false,
@@ -89,7 +51,17 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         get().loadAlerts(true),
         get().fetchCreditCards(),
       ]);
-      set({ isInitialized: true });
+
+      // Load invoice payments for all cards
+      // This might be expensive if many cards, but usually few.
+      // Alternatively, load on demand or just load all recent ones.
+      // For now, let's load for all fetched cards.
+      const cards = get().creditCards;
+      const paymentsPromises = cards.map(c => db.getInvoicePayments(c.id));
+      const paymentsArrays = await Promise.all(paymentsPromises);
+      const allPayments = paymentsArrays.flat();
+
+      set({ invoicePayments: allPayments, isInitialized: true });
     } catch (error) {
       console.error('Error initializing finance store:', error);
       set({ error: 'Falha ao carregar dados. Verifique sua conexão.' });
@@ -309,6 +281,26 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     }
   },
 
+  payInvoice: async (cardId, amount, date) => {
+    const payment = await db.payInvoice(cardId, amount, date);
+    set(state => ({ invoicePayments: [payment, ...state.invoicePayments] }));
+  },
+
+  cancelInvoicePayment: async (paymentId) => {
+    await db.cancelInvoicePayment(paymentId);
+    set(state => ({ invoicePayments: state.invoicePayments.filter(p => p.id !== paymentId) }));
+  },
+
+  loadInvoicePayments: async (cardId) => {
+    const payments = await db.getInvoicePayments(cardId);
+    set(state => {
+      // Merge with existing payments, avoiding duplicates
+      const existingIds = new Set(state.invoicePayments.map(p => p.id));
+      const newPayments = payments.filter(p => !existingIds.has(p.id));
+      return { invoicePayments: [...state.invoicePayments, ...newPayments] };
+    });
+  },
+
   getBudgetProgress: () => {
     const { expenses, budgets } = get();
     return budgets.map(budget => {
@@ -386,6 +378,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       goals: [],
       alerts: [],
       creditCards: [],
+      invoicePayments: [],
       isLoading: false,
       error: null,
       isInitialized: false,

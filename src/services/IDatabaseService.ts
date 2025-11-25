@@ -32,4 +32,8 @@ export interface IDatabaseService {
   addCreditCard(card: Omit<CreditCard, 'id' | 'createdAt'>): Promise<CreditCard>;
   updateCreditCard(id: string, card: Partial<CreditCard>): Promise<CreditCard>;
   deleteCreditCard(id: string): Promise<void>;
+
+  payInvoice(cardId: string, amount: number, date: string): Promise<any>;
+  cancelInvoicePayment(paymentId: string): Promise<void>;
+  getInvoicePayments(cardId: string): Promise<any[]>;
 }

@@ -4,7 +4,7 @@ import { startOfMonth, endOfMonth, addMonths, differenceInDays, format } from 'd
 import { DashboardData, Goal } from '../types';
 
 export const useFinanceEngine = () => {
-  const { expenses, incomes, budgets, goals, getBudgetProgress, getMonthlyTotal, getMonthlyIncome } = useFinanceStore();
+  const { expenses, incomes, budgets, goals, invoicePayments, getBudgetProgress, getMonthlyTotal, getMonthlyIncome } = useFinanceStore();
 
   const dashboardData: DashboardData = useMemo(() => {
     const monthlyTotal = getMonthlyTotal();
@@ -16,8 +16,27 @@ export const useFinanceEngine = () => {
     const debitExpenses = expenses.filter(e => !e.creditCardId).reduce((sum, e) => sum + e.value, 0);
     const creditExpenses = expenses.filter(e => !!e.creditCardId).reduce((sum, e) => sum + e.value, 0);
 
-    const availableBalance = monthlyIncome - debitExpenses;
-    const netWorth = availableBalance - creditExpenses;
+    // Calculate total invoice payments made in the current month
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const monthlyInvoicePayments = invoicePayments
+      .filter(p => {
+        const d = new Date(p.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const availableBalance = monthlyIncome - debitExpenses - monthlyInvoicePayments;
+
+    // Net Worth = Assets (Cash) - Liabilities (Debt)
+    // Assets = availableBalance
+    // Liabilities = creditExpenses (Total Spent) - monthlyInvoicePayments (Amount Paid Back)
+    // We use Math.max(0, ...) to ensure that if we pay more than the *visible/loaded* expenses (e.g. paying a future bill or one from 3 months ago),
+    // we don't artificially inflate the Net Worth by treating the 'excess' payment as a negative liability.
+    // In that case, the Net Worth correctly drops because availableBalance drops, and the 'Liability' stays at 0 (or low).
+    const netWorth = availableBalance - Math.max(0, creditExpenses - monthlyInvoicePayments);
 
     // For now, projection equals available balance since we don't have future recurring items logic yet.
     const projection = availableBalance;
@@ -34,8 +53,9 @@ export const useFinanceEngine = () => {
       projection,
       availableBalance,
       netWorth,
+      monthlyInvoicePayments,
     };
-  }, [expenses, incomes, budgets, goals]);
+  }, [expenses, incomes, budgets, goals, invoicePayments]);
 
   const calculateGoalETA = (goal: Goal): string => {
     if (goal.type === 'spend_limit') {

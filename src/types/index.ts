@@ -23,6 +23,16 @@ export interface CreditCard {
   limit: number;
   last4Digits: string;
   createdAt: string;
+  invoicePayments?: InvoicePayment[];
+}
+
+export interface InvoicePayment {
+  id: string;
+  creditCardId: string;
+  amount: number;
+  date: string;
+  userId: string;
+  createdAt: string;
 }
 
 export interface GoalAllocation {
@@ -86,4 +96,5 @@ export interface DashboardData {
   projection: number;
   availableBalance: number;
   netWorth: number;
+  monthlyInvoicePayments: number;
 }
