@@ -36,6 +36,7 @@ interface ExpenseRequest {
     paymentMethod: string;
     isRecurring: boolean;
     description?: string;
+    creditCardId?: string;
 }
 
 interface IncomeRequest {
@@ -67,6 +68,14 @@ interface AlertRequest {
     message: string;
     category?: string;
     isRead?: boolean;
+}
+
+interface CreditCardRequest {
+    name: string;
+    closingDay: number;
+    dueDay: number;
+    limit: number;
+    last4Digits?: string;
 }
 
 app.post('/auth/register', async (req, res) => {
@@ -165,12 +174,17 @@ app.get('/expenses', authMiddleware, async (req: AuthRequest, res) => {
         };
     }
 
-    const expenses = await prisma.expense.findMany({ where });
+    const expenses = await prisma.expense.findMany({
+        where,
+        include: {
+            creditCard: true
+        }
+    });
     res.json(expenses);
 });
 
 app.post('/expenses', authMiddleware, async (req: AuthRequest, res) => {
-    const { category, value, date, paymentMethod, isRecurring, description } = req.body as ExpenseRequest;
+    const { category, value, date, paymentMethod, isRecurring, description, creditCardId } = req.body as ExpenseRequest;
     const expense = await prisma.expense.create({
         data: {
             category,
@@ -180,13 +194,14 @@ app.post('/expenses', authMiddleware, async (req: AuthRequest, res) => {
             isRecurring,
             description,
             userId: req.user!.userId,
+            creditCardId: creditCardId || null,
         },
     });
     res.json(expense);
 });
 
 app.put('/expenses/:id', authMiddleware, async (req: AuthRequest, res) => {
-    const { category, value, date, paymentMethod, isRecurring, description } = req.body as ExpenseRequest;
+    const { category, value, date, paymentMethod, isRecurring, description, creditCardId } = req.body as ExpenseRequest;
 
     try {
         const existing = await prisma.expense.findFirst({
@@ -206,6 +221,7 @@ app.put('/expenses/:id', authMiddleware, async (req: AuthRequest, res) => {
                 paymentMethod,
                 isRecurring,
                 description,
+                creditCardId: creditCardId || null,
             },
         });
         res.json(expense);
@@ -546,6 +562,63 @@ app.delete('/alerts/old', authMiddleware, async (req: AuthRequest, res) => {
         });
     }
     res.json({ success: true });
+});
+
+// Credit Cards
+app.get('/credit-cards', authMiddleware, async (req: AuthRequest, res) => {
+    const cards = await prisma.creditCard.findMany({
+        where: {
+            userId: req.user!.userId,
+            deletedAt: null
+        }
+    });
+    res.json(cards);
+});
+
+app.post('/credit-cards', authMiddleware, async (req: AuthRequest, res) => {
+    const { name, closingDay, dueDay, limit, last4Digits } = req.body;
+    const userId = (req as any).user.userId;
+
+    try {
+        const creditCard = await prisma.creditCard.create({
+            data: {
+                name,
+                closingDay,
+                dueDay,
+                limit,
+                last4Digits: last4Digits || '0000',
+                userId,
+            },
+        });
+        res.json(creditCard);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error creating credit card', details: error.message });
+    }
+});
+
+app.put('/credit-cards/:id', authMiddleware, async (req: AuthRequest, res) => {
+    const { name, closingDay, dueDay, limit, last4Digits } = req.body as CreditCardRequest;
+    try {
+        const card = await prisma.creditCard.update({
+            where: { id: req.params.id, userId: req.user!.userId },
+            data: { name, closingDay, dueDay, limit, last4Digits }
+        });
+        res.json(card);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error updating credit card', details: error.message });
+    }
+});
+
+app.delete('/credit-cards/:id', authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        await prisma.creditCard.update({
+            where: { id: req.params.id, userId: req.user!.userId },
+            data: { deletedAt: new Date() }
+        });
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error deleting credit card', details: error.message });
+    }
 });
 
 
