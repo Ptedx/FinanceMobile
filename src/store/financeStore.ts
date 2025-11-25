@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Expense, Budget, Goal, Alert, BudgetProgress, Income, CreditCard } from '../types';
 import { db } from '../services/database';
-import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { startOfMonth, endOfMonth, format, subMonths } from 'date-fns';
 
 interface FinanceState {
   expenses: Expense[];
@@ -77,7 +77,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       await db.init();
 
       const currentMonth = format(new Date(), 'yyyy-MM');
-      const startDate = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+      // Load from previous month to ensure we have data for open credit card invoices
+      const startDate = format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd');
       const endDate = format(endOfMonth(new Date()), 'yyyy-MM-dd');
 
       await Promise.all([
@@ -330,12 +331,30 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   getMonthlyTotal: () => {
     const { expenses } = get();
-    return expenses.reduce((sum, e) => sum + e.value, 0);
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return expenses
+      .filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((sum, e) => sum + e.value, 0);
   },
 
   getMonthlyIncome: () => {
     const { incomes } = get();
-    return incomes.reduce((sum, i) => sum + i.value, 0);
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return incomes
+      .filter(i => {
+        const d = new Date(i.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((sum, i) => sum + i.value, 0);
   },
 
   checkBudgetAlerts: () => {

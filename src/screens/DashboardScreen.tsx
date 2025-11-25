@@ -11,9 +11,11 @@ import { useFinanceStore } from '../store/financeStore';
 import { useAuthStore } from '../store/authStore';
 import { useFinanceEngine } from '../hooks/useFinanceEngine';
 import { spacing, typography } from '../theme';
-import { getCategoryColor, getCategoryLabel, getCategoryIcon } from '../constants';
+import { getCategoryColor, getCategoryLabel, getCategoryIcon, INCOME_CATEGORIES } from '../constants';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { getInvoiceDates, isExpenseInInvoice } from '../utils/creditCardUtils';
+import { formatCurrency } from '../utils/formatters';
 
 import { LoadingScreen } from './LoadingScreen';
 import { ErrorRetryScreen } from './ErrorRetryScreen';
@@ -21,7 +23,7 @@ import { ErrorRetryScreen } from './ErrorRetryScreen';
 export const DashboardScreen = ({ navigation }: any) => {
   const theme = useTheme();
   const { user } = useAuthStore();
-  const { alerts, markAlertAsRead, goals, isLoading, error, retry, isValuesVisible, toggleValuesVisibility, creditCards, expenses } = useFinanceStore();
+  const { alerts, markAlertAsRead, goals, isLoading, error, retry, isValuesVisible, toggleValuesVisibility, creditCards, expenses, incomes } = useFinanceStore();
   const [selectedPeriod, setSelectedPeriod] = useState<'1D' | '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('7D');
 
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
@@ -71,9 +73,9 @@ export const DashboardScreen = ({ navigation }: any) => {
     setDismissedAlerts(prev => [...prev, id]);
   };
 
-  const formatValue = (value: number, prefix: string = 'R$ ') => {
-    if (!isValuesVisible) return `${prefix}••••••`;
-    return `${prefix}${value.toFixed(2)}`;
+  const formatValue = (value: number, prefix: string = '') => {
+    if (!isValuesVisible) return 'R$ ••••••';
+    return formatCurrency(value);
   };
 
   const getGreeting = () => {
@@ -152,6 +154,29 @@ export const DashboardScreen = ({ navigation }: any) => {
               <Text style={[styles.summaryValue, { color: (theme.colors as any).success }]}>
                 {formatValue(dashboardData.monthlyIncome)}
               </Text>
+              {isValuesVisible && (
+                <View style={{ marginTop: 8, width: '100%', paddingHorizontal: 12 }}>
+                  {INCOME_CATEGORIES.map(cat => {
+                    const catTotal = incomes
+                      .filter(i => i.category === cat.value && new Date(i.date).getMonth() === new Date().getMonth())
+                      .reduce((sum, i) => sum + i.value, 0);
+
+                    if (catTotal === 0) return null;
+
+                    return (
+                      <View key={cat.value} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>{cat.label}:</Text>
+                        <Text style={{ ...typography.caption, color: theme.colors.onSurface }}>
+                          {formatCurrency(catTotal)}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                  <Text style={{ ...typography.caption, color: theme.colors.outline, textAlign: 'center', marginTop: 4, fontSize: 10 }}>
+                    (Total do Mês)
+                  </Text>
+                </View>
+              )}
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
@@ -159,6 +184,25 @@ export const DashboardScreen = ({ navigation }: any) => {
               <Text style={[styles.summaryValue, { color: theme.colors.error }]}>
                 {formatValue(dashboardData.monthlyTotal)}
               </Text>
+              {isValuesVisible && (
+                <View style={{ marginTop: 8, width: '100%', paddingHorizontal: 12 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
+                    <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>Débito:</Text>
+                    <Text style={{ ...typography.caption, color: theme.colors.onSurface }}>
+                      {formatCurrency(expenses.filter(e => !e.creditCardId && new Date(e.date).getMonth() === new Date().getMonth()).reduce((sum, e) => sum + e.value, 0))}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>Crédito:</Text>
+                    <Text style={{ ...typography.caption, color: theme.colors.onSurface }}>
+                      {formatCurrency(expenses.filter(e => !!e.creditCardId && new Date(e.date).getMonth() === new Date().getMonth()).reduce((sum, e) => sum + e.value, 0))}
+                    </Text>
+                  </View>
+                  <Text style={{ ...typography.caption, color: theme.colors.outline, textAlign: 'center', marginTop: 4, fontSize: 10 }}>
+                    (Total do Mês)
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </Card>
@@ -177,11 +221,12 @@ export const DashboardScreen = ({ navigation }: any) => {
             <Text style={styles.emptyText}>Nenhum cartão cadastrado.</Text>
           ) : (
             creditCards.map(card => {
+              const { startDate, endDate } = getInvoiceDates(card.closingDay);
+
               const invoice = expenses
                 .filter(e =>
                   e.creditCardId === card.id &&
-                  new Date(e.date).getMonth() === new Date().getMonth() &&
-                  new Date(e.date).getFullYear() === new Date().getFullYear()
+                  isExpenseInInvoice(new Date(e.date), startDate, endDate)
                 )
                 .reduce((sum, e) => sum + e.value, 0);
 
@@ -209,7 +254,7 @@ export const DashboardScreen = ({ navigation }: any) => {
                   />
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
                     <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>
-                      Fecha dia {card.closingDay}
+                      {new Date().getDate() <= card.closingDay ? 'Fatura Aberta' : 'Fatura Próximo Mês'}
                     </Text>
                     <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>
                       Vence dia {card.dueDay}
@@ -405,15 +450,16 @@ const createStyles = (theme: any) =>
     },
     summaryRow: {
       flexDirection: 'row',
-      alignItems: 'center',
+      // alignItems: 'center', // Removed to allow stretch/top alignment
     },
     summaryItem: {
       flex: 1,
       alignItems: 'center',
+      justifyContent: 'flex-start', // Ensure content starts at top
     },
     summaryDivider: {
       width: 1,
-      height: 40,
+      // height: 40, // Removed fixed height to allow stretch
       backgroundColor: theme.colors.outline,
     },
     horizontalDivider: {
@@ -432,6 +478,7 @@ const createStyles = (theme: any) =>
       ...typography.h2,
       color: theme.colors.primary,
       textAlign: 'center',
+      fontWeight: 'bold', // Added bold
     },
     chartCard: {
       marginBottom: spacing.md,
