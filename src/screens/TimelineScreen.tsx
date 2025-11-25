@@ -21,6 +21,7 @@ export const TimelineScreen = () => {
     const [endDate, setEndDate] = useState<Date | undefined>(undefined);
     const [showStartDatePicker, setShowStartDatePicker] = useState(false);
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const sections = useMemo(() => {
         let allTransactions = [
@@ -52,6 +53,16 @@ export const TimelineScreen = () => {
             });
         }
 
+        // Filter by search query
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase().trim();
+            allTransactions = allTransactions.filter(t => {
+                const descriptionMatch = (t.description || '').toLowerCase().includes(query);
+                const categoryMatch = (t.category || '').toLowerCase().includes(query);
+                return descriptionMatch || categoryMatch;
+            });
+        }
+
         allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         const grouped = allTransactions.reduce((acc, transaction) => {
@@ -69,7 +80,7 @@ export const TimelineScreen = () => {
             title,
             data,
         }));
-    }, [expenses, incomes, filter, startDate, endDate]);
+    }, [expenses, incomes, filter, startDate, endDate, searchQuery]);
 
     const onStartDateChange = (event: any, selectedDate?: Date) => {
         setShowStartDatePicker(Platform.OS === 'ios');
@@ -227,6 +238,22 @@ export const TimelineScreen = () => {
                             />
                         )}
                     </View>
+
+                    <TextInput
+                        mode="outlined"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholder="Buscar transações..."
+                        style={styles.searchInput}
+                        right={
+                            searchQuery ? (
+                                <TextInput.Icon icon="close" onPress={() => setSearchQuery('')} />
+                            ) : (
+                                <TextInput.Icon icon="magnify" />
+                            )
+                        }
+                        dense
+                    />
                 </View>
 
                 {showStartDatePicker && (
@@ -364,6 +391,11 @@ const createStyles = (theme: any) => StyleSheet.create({
     dateInput: {
         backgroundColor: theme.colors.surface,
         fontSize: 14,
+    },
+    searchInput: {
+        backgroundColor: theme.colors.surface,
+        fontSize: 14,
+        marginTop: spacing.sm,
     },
     clearButton: {
         margin: 0,
