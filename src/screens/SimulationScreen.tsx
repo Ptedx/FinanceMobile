@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, Dimensions, TouchableOpacity, PanResponder } from 'react-native';
 import { Text, Card, useTheme, IconButton, TextInput, Divider, Menu } from 'react-native-paper';
 import Svg, { Path, Line, Text as SvgText, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useFinanceEngine } from '../hooks/useFinanceEngine';
@@ -24,18 +24,17 @@ export const SimulationScreen = () => {
     const [durationMenuVisible, setDurationMenuVisible] = useState(false);
     const [returnRateMenuVisible, setReturnRateMenuVisible] = useState(false);
 
+    // Chart Interaction State
+    const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
     // Derived Data
     const currentNetWorth = dashboardData.netWorth;
-    const currentMonthlyIncome = dashboardData.monthlyIncome;
-    const currentMonthlyExpenses = dashboardData.monthlyTotal;
-    const currentMonthlySavings = Math.max(0, currentMonthlyIncome - currentMonthlyExpenses);
 
     // Simulated savings is EXACTLY what the user inputs
     const simulatedMonthlySavings = monthlyContribution;
 
     // Projection Calculation
     const projectionData = useMemo(() => {
-        const dataCurrent = [];
         const dataSimulated = [];
         const returnRate = parseFloat(annualReturn.replace(',', '.')) || 0;
 
@@ -47,7 +46,6 @@ export const SimulationScreen = () => {
             monthlyRate = returnRate / 100;
         }
 
-        let balanceCurrent = currentNetWorth;
         let balanceSimulated = currentNetWorth;
 
         const durationVal = parseInt(simulationDuration) || 0;
@@ -64,24 +62,24 @@ export const SimulationScreen = () => {
 
             if (month % step === 0 || month === safeTotalMonths) {
                 const xValue = durationUnit === 'years' ? month / 12 : month;
-
-                dataCurrent.push({ x: xValue, y: balanceCurrent });
-                dataSimulated.push({ x: xValue, y: balanceSimulated });
+                dataSimulated.push({ x: xValue, y: balanceSimulated, monthIndex: month });
             }
 
             // Compound Interest + Monthly Contribution
-            balanceCurrent = balanceCurrent * (1 + monthlyRate) + currentMonthlySavings;
             balanceSimulated = balanceSimulated * (1 + monthlyRate) + simulatedMonthlySavings;
         }
 
-        return { dataCurrent, dataSimulated, finalCurrent: balanceCurrent, finalSimulated: balanceSimulated };
-    }, [currentNetWorth, currentMonthlySavings, simulatedMonthlySavings, annualReturn, returnRatePeriod, simulationDuration, durationUnit]);
+        return { dataSimulated, finalSimulated: balanceSimulated };
+    }, [currentNetWorth, simulatedMonthlySavings, annualReturn, returnRatePeriod, simulationDuration, durationUnit]);
 
     const timeToMillion = useMemo(() => {
-        if (simulatedMonthlySavings <= 0 && currentNetWorth < 1000000) return Infinity;
+        // Only return infinity if there is NO growth potential (no savings AND no return rate)
+        // OR if the user is already at 1 million
+        const returnRate = parseFloat(annualReturn.replace(',', '.')) || 0;
+        if (currentNetWorth < 1000000 && simulatedMonthlySavings <= 0 && returnRate <= 0) return Infinity;
+        if (currentNetWorth >= 1000000) return 0;
 
         const target = 1000000;
-        const returnRate = parseFloat(annualReturn.replace(',', '.')) || 0;
 
         let monthlyRate = 0;
         if (returnRatePeriod === 'yearly') {
@@ -92,7 +90,7 @@ export const SimulationScreen = () => {
 
         let balance = currentNetWorth;
         let months = 0;
-        // Safety break at 100 years
+        // Safety break at 100 years (1200 months)
         while (balance < target && months < 1200) {
             balance = balance * (1 + monthlyRate) + simulatedMonthlySavings;
             months++;
@@ -101,17 +99,15 @@ export const SimulationScreen = () => {
         return months / 12;
     }, [currentNetWorth, simulatedMonthlySavings, annualReturn, returnRatePeriod]);
 
-    const difference = projectionData.finalSimulated - projectionData.finalCurrent;
-
     // --- Chart Logic ---
     const screenWidth = Dimensions.get('window').width;
     const chartHeight = 250;
-    const padding = { top: 20, bottom: 40, left: 50, right: 20 };
+    const padding = { top: 40, bottom: 40, left: 50, right: 30 }; // Increased top padding for tooltip
     const chartWidth = screenWidth - 64; // Card padding + margin
     const plotWidth = chartWidth - padding.left - padding.right;
     const plotHeight = chartHeight - padding.top - padding.bottom;
 
-    const allDataPoints = [...projectionData.dataCurrent, ...projectionData.dataSimulated];
+    const allDataPoints = projectionData.dataSimulated;
     const xMin = 0;
     const xMax = allDataPoints.length > 0 ? Math.max(...allDataPoints.map(d => d.x)) : 1;
     const yMin = allDataPoints.length > 0 ? Math.min(...allDataPoints.map(d => d.y)) : 0;
@@ -128,6 +124,13 @@ export const SimulationScreen = () => {
         return chartHeight - padding.bottom - ((y - yMin) / (effectiveYMax - yMin)) * plotHeight;
     };
 
+    const inverseScaleX = (screenX: number) => {
+        const relativeX = screenX - padding.left;
+        const clampedX = Math.max(0, Math.min(relativeX, plotWidth));
+        const ratio = clampedX / plotWidth;
+        return ratio * xMax;
+    };
+
     const generatePath = (data: { x: number, y: number }[]) => {
         if (data.length === 0) return "";
         return data.map((d, i) => {
@@ -137,17 +140,72 @@ export const SimulationScreen = () => {
         }).join(' ');
     };
 
-    const currentPath = generatePath(projectionData.dataCurrent);
+    const generateAreaPath = (data: { x: number, y: number }[]) => {
+        if (data.length === 0) return "";
+        const lineStr = generatePath(data);
+        const firstX = scaleX(data[0].x);
+        const lastX = scaleX(data[data.length - 1].x);
+        const bottomY = chartHeight - padding.bottom;
+        return `${lineStr} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
+    };
+
     const simulatedPath = generatePath(projectionData.dataSimulated);
+    const areaPath = generateAreaPath(projectionData.dataSimulated);
 
     // Generate ticks
     const yTicks = [0, 0.25, 0.5, 0.75, 1].map(p => yMin + (effectiveYMax - yMin) * p);
     const xTicks = [0, 0.25, 0.5, 0.75, 1].map(p => xMax * p);
 
+    // PanResponder for Interaction
+    const panResponder = useMemo(() =>
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+            onStartShouldSetPanResponderCapture: () => true,
+            onMoveShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponderCapture: () => true,
+            onPanResponderGrant: (evt) => {
+                const { locationX } = evt.nativeEvent;
+                const touchedX = inverseScaleX(locationX);
+                let closestIndex = 0;
+                let minDiff = Infinity;
+                projectionData.dataSimulated.forEach((d, i) => {
+                    const diff = Math.abs(d.x - touchedX);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestIndex = i;
+                    }
+                });
+                setSelectedIndex(closestIndex);
+            },
+            onPanResponderMove: (evt) => {
+                const { locationX } = evt.nativeEvent;
+                const touchedX = inverseScaleX(locationX);
+                let closestIndex = 0;
+                let minDiff = Infinity;
+                projectionData.dataSimulated.forEach((d, i) => {
+                    const diff = Math.abs(d.x - touchedX);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestIndex = i;
+                    }
+                });
+                setSelectedIndex(closestIndex);
+            },
+            onPanResponderRelease: () => {
+                setSelectedIndex(null);
+            },
+            onPanResponderTerminate: () => {
+                setSelectedIndex(null);
+            }
+        }),
+        [projectionData.dataSimulated, xMax, plotWidth]
+    );
+
     return (
         <ScrollView
             style={[styles.container, { backgroundColor: theme.colors.background }]}
             contentContainerStyle={{ paddingBottom: 100 }}
+            scrollEnabled={selectedIndex === null} // Disable scroll while dragging chart
         >
             <View style={styles.header}>
                 <IconButton icon="arrow-left" onPress={() => navigation.goBack()} />
@@ -245,20 +303,15 @@ export const SimulationScreen = () => {
                         Projeção de Patrimônio
                     </Text>
 
-                    {/* Custom Legend */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}>
-                            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: theme.colors.secondary, marginRight: 6 }} />
-                            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Atual</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: theme.colors.primary, marginRight: 6 }} />
-                            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Simulado</Text>
-                        </View>
-                    </View>
-
-                    <View style={{ alignItems: 'center' }}>
+                    <View style={{ alignItems: 'center' }} {...panResponder.panHandlers}>
                         <Svg width={chartWidth} height={chartHeight}>
+                            <Defs>
+                                <LinearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <Stop offset="0" stopColor={theme.colors.primary} stopOpacity="0.3" />
+                                    <Stop offset="1" stopColor={theme.colors.primary} stopOpacity="0.0" />
+                                </LinearGradient>
+                            </Defs>
+
                             {/* Y Axis Grid & Labels */}
                             {yTicks.map((val, i) => (
                                 <React.Fragment key={`y-${i}`}>
@@ -297,13 +350,10 @@ export const SimulationScreen = () => {
                                 </SvgText>
                             ))}
 
-                            {/* Current Trajectory Line */}
+                            {/* Area Fill */}
                             <Path
-                                d={currentPath}
-                                stroke={theme.colors.secondary}
-                                strokeWidth="2"
-                                strokeDasharray="5, 5"
-                                fill="none"
+                                d={areaPath}
+                                fill="url(#chartGradient)"
                             />
 
                             {/* Simulated Trajectory Line */}
@@ -313,6 +363,67 @@ export const SimulationScreen = () => {
                                 strokeWidth="3"
                                 fill="none"
                             />
+
+                            {/* Nodes (Dots) - Only show when not interacting or show all? 
+                                User asked for nodes. Let's keep them small.
+                            */}
+                            {projectionData.dataSimulated.map((point, i) => (
+                                <Circle
+                                    key={`node-${i}`}
+                                    cx={scaleX(point.x)}
+                                    cy={scaleY(point.y)}
+                                    r={3}
+                                    fill={theme.colors.background}
+                                    stroke={theme.colors.primary}
+                                    strokeWidth={2}
+                                />
+                            ))}
+
+                            {/* Interactive Tooltip */}
+                            {selectedIndex !== null && projectionData.dataSimulated[selectedIndex] && (
+                                <React.Fragment>
+                                    {/* Vertical Line */}
+                                    <Line
+                                        x1={scaleX(projectionData.dataSimulated[selectedIndex].x)}
+                                        y1={padding.top}
+                                        x2={scaleX(projectionData.dataSimulated[selectedIndex].x)}
+                                        y2={chartHeight - padding.bottom}
+                                        stroke={theme.colors.onSurface}
+                                        strokeWidth="1"
+                                        strokeDasharray="2 2"
+                                        opacity="0.5"
+                                    />
+                                    {/* Highlight Circle */}
+                                    <Circle
+                                        cx={scaleX(projectionData.dataSimulated[selectedIndex].x)}
+                                        cy={scaleY(projectionData.dataSimulated[selectedIndex].y)}
+                                        r={6}
+                                        fill={theme.colors.background}
+                                        stroke={theme.colors.primary}
+                                        strokeWidth={2}
+                                    />
+                                    {/* Tooltip Text */}
+                                    <SvgText
+                                        x={chartWidth / 2}
+                                        y={20}
+                                        fontSize="14"
+                                        fontWeight="bold"
+                                        fill={theme.colors.onSurface}
+                                        textAnchor="middle"
+                                    >
+                                        {formatCurrency(projectionData.dataSimulated[selectedIndex].y)}
+                                    </SvgText>
+                                    <SvgText
+                                        x={chartWidth / 2}
+                                        y={36}
+                                        fontSize="12"
+                                        fill={theme.colors.onSurfaceVariant}
+                                        textAnchor="middle"
+                                    >
+                                        {`${projectionData.dataSimulated[selectedIndex].x.toFixed(1)} ${durationUnit === 'years' ? 'anos' : 'meses'}`}
+                                    </SvgText>
+                                </React.Fragment>
+                            )}
                         </Svg>
                     </View>
 
@@ -324,11 +435,6 @@ export const SimulationScreen = () => {
                             <Text variant="displaySmall" style={{ color: theme.colors.primary, fontWeight: 'bold', marginVertical: 4 }}>
                                 {formatCurrency(projectionData.finalSimulated)}
                             </Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: difference > 0 ? '#E8F5E9' : '#F5F5F5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
-                                <Text variant="labelLarge" style={{ color: difference > 0 ? '#2E7D32' : 'gray', fontWeight: 'bold' }}>
-                                    {difference > 0 ? `+${formatCurrency(difference)}` : 'Sem ganho extra'}
-                                </Text>
-                            </View>
                         </View>
                     </View>
 
@@ -342,9 +448,9 @@ export const SimulationScreen = () => {
                             <Text variant="bodyMedium" style={{ color: theme.colors.secondary }}>Tempo para o 1º Milhão</Text>
                             <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>
                                 {timeToMillion === Infinity
-                                    ? "Nunca (neste ritmo)"
-                                    : timeToMillion > 50
-                                        ? "> 50 anos"
+                                    ? "Nunca (sem rendimento)"
+                                    : timeToMillion > 100
+                                        ? "> 100 anos"
                                         : `${timeToMillion.toFixed(1)} anos`}
                             </Text>
                         </View>
