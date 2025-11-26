@@ -80,7 +80,13 @@ export const SimulationScreen = () => {
             }
 
             // Compound Interest + Monthly Contribution
-            balanceSimulated = balanceSimulated * (1 + monthlyRate) + simulatedMonthlySavings;
+            // Logic Update: If balance is negative, do NOT apply investment return.
+            // Only apply contribution.
+            if (balanceSimulated < 0) {
+                balanceSimulated = balanceSimulated + simulatedMonthlySavings;
+            } else {
+                balanceSimulated = balanceSimulated * (1 + monthlyRate) + simulatedMonthlySavings;
+            }
         }
 
         return { dataSimulated, finalSimulated: balanceSimulated };
@@ -90,10 +96,6 @@ export const SimulationScreen = () => {
         // Only return infinity if there is NO growth potential (no savings AND no return rate)
         // OR if the user is already at 1 million
         const returnRate = parseFloat(annualReturn.replace(',', '.')) || 0;
-        if (currentNetWorth < 1000000 && simulatedMonthlySavings <= 0 && returnRate <= 0) return Infinity;
-        if (currentNetWorth >= 1000000) return 0;
-
-        const target = 1000000;
 
         let monthlyRate = 0;
         if (returnRatePeriod === 'yearly') {
@@ -102,11 +104,35 @@ export const SimulationScreen = () => {
             monthlyRate = returnRate / 100;
         }
 
+        // Case 1: Already at target
+        if (currentNetWorth >= 1000000) return 0;
+
+        // Case 2: Negative Net Worth (Debt)
+        if (currentNetWorth < 0) {
+            // If no savings, debt stays flat (no interest applied per new logic) or grows if we considered debt interest.
+            // User requested: "se estabilizar". So it stays flat.
+            // If flat and < target, it never reaches target.
+            if (simulatedMonthlySavings <= 0) return Infinity;
+
+            // If savings > 0, it will eventually become positive.
+            // Since we don't apply debt interest, any positive saving reduces debt.
+        }
+        // Case 3: Positive Net Worth but no growth
+        else if (simulatedMonthlySavings <= 0 && returnRate <= 0) {
+            return Infinity;
+        }
+
+        const target = 1000000;
+
         let balance = currentNetWorth;
         let months = 0;
         // Safety break at 100 years (1200 months)
         while (balance < target && months < 1200) {
-            balance = balance * (1 + monthlyRate) + simulatedMonthlySavings;
+            if (balance < 0) {
+                balance = balance + simulatedMonthlySavings;
+            } else {
+                balance = balance * (1 + monthlyRate) + simulatedMonthlySavings;
+            }
             months++;
         }
 
@@ -132,8 +158,11 @@ export const SimulationScreen = () => {
 
     // Add some padding to Y axis and ensure range is non-zero
     let effectiveYMax = yMax * 1.1;
-    if (effectiveYMax === yMin) {
-        effectiveYMax = yMin + 1000; // Default range if flat
+    // If we have negative values, we might want some bottom padding too
+    let effectiveYMin = yMin < 0 ? yMin * 1.1 : yMin;
+
+    if (effectiveYMax === effectiveYMin) {
+        effectiveYMax = effectiveYMin + 1000; // Default range if flat
     }
 
     const scaleX = (x: number) => {
@@ -141,7 +170,7 @@ export const SimulationScreen = () => {
     };
 
     const scaleY = (y: number) => {
-        return chartHeight - padding.bottom - ((y - yMin) / (effectiveYMax - yMin)) * plotHeight;
+        return chartHeight - padding.bottom - ((y - effectiveYMin) / (effectiveYMax - effectiveYMin)) * plotHeight;
     };
 
     const inverseScaleX = (screenX: number) => {
@@ -181,8 +210,42 @@ export const SimulationScreen = () => {
     const areaPath = generateAreaPath(projectionData.dataSimulated);
 
     // Generate ticks
-    const yTicks = [0, 0.25, 0.5, 0.75, 1].map(p => yMin + (effectiveYMax - yMin) * p);
+    const yTicks = [0, 0.25, 0.5, 0.75, 1].map(p => effectiveYMin + (effectiveYMax - effectiveYMin) * p);
     const xTicks = [0, 0.25, 0.5, 0.75, 1].map(p => xMax * p);
+
+    // Gradient Logic for Line Color
+    // We want Red below 0 and Green above 0.
+    // Calculate the offset percentage where Y=0.
+    const zeroY = scaleY(0);
+    // SVG Gradient coordinates: 0 is top, 1 is bottom.
+    // Chart Y coordinates: 0 is bottom, Height is top (but scaleY inverts this).
+    // scaleY(yMax) is near 0 (top). scaleY(yMin) is near Height (bottom).
+    // So offset = (zeroY - topPadding) / plotHeight? No.
+    // Let's use the relative position in the SVG viewbox height.
+    // Gradient y1=0 (top), y2=1 (bottom).
+    // Offset = zeroY / chartHeight? No, needs to be relative to the bounding box of the path or userSpaceOnUse.
+    // If we use userSpaceOnUse, we can use absolute coordinates.
+    // But LinearGradient defaults to objectBoundingBox.
+    // Let's use userSpaceOnUse for simpler coordinate mapping if possible, or calculate the ratio.
+    // Ratio = (effectiveYMax - 0) / (effectiveYMax - effectiveYMin).
+    // Example: Max=100, Min=-100. Range=200. 0 is halfway. Ratio=0.5.
+    // In SVG (0=top, 1=bottom):
+    // Top value is Max. Bottom value is Min.
+    // So 0 corresponds to Max. 1 corresponds to Min.
+    // We want the stop at 0.
+    // The value 0 is at (Max - 0) / (Max - Min) distance from Top.
+    // So offset = effectiveYMax / (effectiveYMax - effectiveYMin).
+    let zeroOffset = 0;
+    if (effectiveYMax > 0 && effectiveYMin < 0) {
+        zeroOffset = effectiveYMax / (effectiveYMax - effectiveYMin);
+    } else if (effectiveYMin >= 0) {
+        zeroOffset = 1; // All positive -> All green (stop at bottom is green) -> actually if we want green above, we set stop at 1 to green?
+        // Wait.
+        // If offset is 1 (bottom), and we want green above it.
+        // Stop 0: Green. Stop 1: Green.
+    } else {
+        zeroOffset = 0; // All negative -> All red.
+    }
 
     // PanResponder for Interaction
     const panResponder = useMemo(() =>
@@ -334,9 +397,18 @@ export const SimulationScreen = () => {
                     <View style={{ alignItems: 'center' }} {...panResponder.panHandlers}>
                         <Svg width={chartWidth} height={chartHeight}>
                             <Defs>
+                                {/* Area Gradient */}
                                 <LinearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                                     <Stop offset="0" stopColor={theme.colors.primary} stopOpacity="0.3" />
                                     <Stop offset="1" stopColor={theme.colors.primary} stopOpacity="0.0" />
+                                </LinearGradient>
+
+                                {/* Line Gradient (Green to Red) */}
+                                <LinearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <Stop offset={0} stopColor={theme.colors.primary} />
+                                    <Stop offset={zeroOffset} stopColor={theme.colors.primary} />
+                                    <Stop offset={zeroOffset} stopColor={theme.colors.error} />
+                                    <Stop offset={1} stopColor={theme.colors.error} />
                                 </LinearGradient>
                             </Defs>
 
@@ -384,10 +456,10 @@ export const SimulationScreen = () => {
                                 fill="url(#chartGradient)"
                             />
 
-                            {/* Simulated Trajectory Line */}
+                            {/* Simulated Trajectory Line with Gradient Stroke */}
                             <Path
                                 d={simulatedPath}
-                                stroke={theme.colors.primary}
+                                stroke="url(#lineGradient)"
                                 strokeWidth="3"
                                 fill="none"
                             />
@@ -400,7 +472,7 @@ export const SimulationScreen = () => {
                                     cy={scaleY(point.y)}
                                     r={3}
                                     fill={theme.colors.background}
-                                    stroke={theme.colors.primary}
+                                    stroke={point.y >= 0 ? theme.colors.primary : theme.colors.error}
                                     strokeWidth={2}
                                 />
                             ))}
@@ -425,7 +497,7 @@ export const SimulationScreen = () => {
                                         cy={scaleY(projectionData.dataSimulated[selectedIndex].y)}
                                         r={6}
                                         fill={theme.colors.background}
-                                        stroke={theme.colors.primary}
+                                        stroke={projectionData.dataSimulated[selectedIndex].y >= 0 ? theme.colors.primary : theme.colors.error}
                                         strokeWidth={2}
                                     />
                                     {/* Tooltip Text */}
@@ -434,7 +506,7 @@ export const SimulationScreen = () => {
                                         y={20}
                                         fontSize="14"
                                         fontWeight="bold"
-                                        fill={theme.colors.onSurface}
+                                        fill={projectionData.dataSimulated[selectedIndex].y >= 0 ? theme.colors.onSurface : theme.colors.error}
                                         textAnchor="middle"
                                     >
                                         {formatCurrency(projectionData.dataSimulated[selectedIndex].y)}
@@ -458,7 +530,11 @@ export const SimulationScreen = () => {
                             <Text variant="labelMedium">
                                 Patrimônio em {simulationDuration} {durationUnit === 'years' ? 'anos' : 'meses'}
                             </Text>
-                            <Text variant="displaySmall" style={{ color: theme.colors.primary, fontWeight: 'bold', marginVertical: 4 }}>
+                            <Text variant="displaySmall" style={{
+                                color: projectionData.finalSimulated >= 0 ? theme.colors.primary : theme.colors.error,
+                                fontWeight: 'bold',
+                                marginVertical: 4
+                            }}>
                                 {formatCurrency(projectionData.finalSimulated)}
                             </Text>
                         </View>
