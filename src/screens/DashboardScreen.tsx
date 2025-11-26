@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { IconButton, FAB, useTheme, SegmentedButtons, Icon } from 'react-native-paper';
+import { IconButton, FAB, useTheme, SegmentedButtons, Icon, Button } from 'react-native-paper';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { AlertBanner } from '../components/AlertBanner';
@@ -323,6 +323,14 @@ export const DashboardScreen = ({ navigation }: any) => {
                 })()
               )}
             </View>
+            <Button
+              mode="contained-tonal"
+              icon="rocket-launch"
+              onPress={() => navigation.navigate('Simulation')}
+              compact
+            >
+              Simular
+            </Button>
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>

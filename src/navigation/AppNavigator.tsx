@@ -18,6 +18,7 @@ import { TimelineScreen } from '../screens/TimelineScreen';
 import { AlertsScreen } from '../screens/AlertsScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
+import { SimulationScreen } from '../screens/SimulationScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -186,6 +187,13 @@ export const AppNavigator = () => {
             options={{
               title: 'Adicionar Cartão',
               presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
+            name="Simulation"
+            component={SimulationScreen}
+            options={{
+              headerShown: false,
             }}
           />
         </Stack.Navigator>

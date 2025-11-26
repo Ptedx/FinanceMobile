@@ -11,9 +11,54 @@ interface FinanceState {
   alerts: Alert[];
   invoicePayments: InvoicePayment[];
 
+  creditCards: CreditCard[];
+  isLoading: boolean;
+  error: string | null;
+  isInitialized: boolean;
+  isValuesVisible: boolean;
+
+  toggleValuesVisibility: () => void;
+  initialize: () => Promise<void>;
+  retry: () => Promise<void>;
+  reset: () => void;
+
+  addExpense: (expense: any) => Promise<void>;
+  updateExpense: (id: string, expense: any) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
+  loadExpenses: (startDate: string, endDate: string) => Promise<void>;
+
+  addIncome: (income: any) => Promise<void>;
+  updateIncome: (id: string, income: any) => Promise<void>;
+  deleteIncome: (id: string) => Promise<void>;
+  loadIncomes: (startDate: string, endDate: string) => Promise<void>;
+
+  addBudget: (budget: any) => Promise<void>;
+  updateBudget: (id: string, budget: any) => Promise<void>;
+  deleteBudget: (id: string) => Promise<void>;
+  loadBudgets: (month: string) => Promise<void>;
+
+  addGoal: (goal: any) => Promise<void>;
+  loadGoals: () => Promise<void>;
+  updateGoal: (id: string, goal: any) => Promise<void>;
+  deleteGoal: (id: string) => Promise<void>;
+
+  addAlert: (alert: any) => Promise<void>;
+  loadAlerts: (unreadOnly?: boolean) => Promise<void>;
+  markAlertAsRead: (id: string) => Promise<void>;
+
+  fetchCreditCards: () => Promise<void>;
+  addCreditCard: (card: any) => Promise<void>;
+  updateCreditCard: (id: string, card: any) => Promise<void>;
+  deleteCreditCard: (id: string) => Promise<void>;
+
   payInvoice: (cardId: string, amount: number, date: string) => Promise<void>;
   cancelInvoicePayment: (paymentId: string) => Promise<void>;
   loadInvoicePayments: (cardId: string) => Promise<void>;
+
+  getBudgetProgress: () => BudgetProgress[];
+  getMonthlyTotal: () => number;
+  getMonthlyIncome: () => number;
+  checkBudgetAlerts: () => void;
 }
 
 export const useFinanceStore = create<FinanceState>((set, get) => ({
