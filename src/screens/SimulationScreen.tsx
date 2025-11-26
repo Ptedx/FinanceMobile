@@ -33,6 +33,20 @@ export const SimulationScreen = () => {
     // Simulated savings is EXACTLY what the user inputs
     const simulatedMonthlySavings = monthlyContribution;
 
+    // Helper for formatting duration
+    const formatDurationLabel = (value: number, unit: 'years' | 'months') => {
+        if (unit === 'months') return `${Math.round(value)} meses`;
+
+        // Value is in years, convert to total months to handle decimals accurately
+        const totalMonths = Math.round(value * 12);
+        const years = Math.floor(totalMonths / 12);
+        const months = totalMonths % 12;
+
+        if (years === 0) return `${months} meses`;
+        if (months === 0) return `${years} ${years === 1 ? 'ano' : 'anos'}`;
+        return `${years} ${years === 1 ? 'ano' : 'anos'} e ${months} ${months === 1 ? 'mês' : 'meses'}`;
+    };
+
     // Projection Calculation
     const projectionData = useMemo(() => {
         const dataSimulated = [];
@@ -108,13 +122,19 @@ export const SimulationScreen = () => {
     const plotHeight = chartHeight - padding.top - padding.bottom;
 
     const allDataPoints = projectionData.dataSimulated;
-    const xMin = 0;
-    const xMax = allDataPoints.length > 0 ? Math.max(...allDataPoints.map(d => d.x)) : 1;
+
+    // Safety: Ensure xMax is at least 1 to avoid division by zero
+    const xMaxRaw = allDataPoints.length > 0 ? Math.max(...allDataPoints.map(d => d.x)) : 0;
+    const xMax = xMaxRaw === 0 ? 1 : xMaxRaw;
+
     const yMin = allDataPoints.length > 0 ? Math.min(...allDataPoints.map(d => d.y)) : 0;
     const yMax = allDataPoints.length > 0 ? Math.max(...allDataPoints.map(d => d.y)) : 1000;
 
-    // Add some padding to Y axis
-    const effectiveYMax = yMax * 1.1;
+    // Add some padding to Y axis and ensure range is non-zero
+    let effectiveYMax = yMax * 1.1;
+    if (effectiveYMax === yMin) {
+        effectiveYMax = yMin + 1000; // Default range if flat
+    }
 
     const scaleX = (x: number) => {
         return padding.left + (x / xMax) * plotWidth;
@@ -136,16 +156,24 @@ export const SimulationScreen = () => {
         return data.map((d, i) => {
             const x = scaleX(d.x);
             const y = scaleY(d.y);
+            // Safety check for NaN/Infinity
+            if (!isFinite(x) || !isFinite(y)) return "";
             return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-        }).join(' ');
+        }).filter(s => s !== "").join(' ');
     };
 
     const generateAreaPath = (data: { x: number, y: number }[]) => {
         if (data.length === 0) return "";
         const lineStr = generatePath(data);
+        if (!lineStr) return ""; // Return empty if line generation failed
+
         const firstX = scaleX(data[0].x);
         const lastX = scaleX(data[data.length - 1].x);
         const bottomY = chartHeight - padding.bottom;
+
+        // Safety check for area points
+        if (!isFinite(firstX) || !isFinite(lastX) || !isFinite(bottomY)) return "";
+
         return `${lineStr} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
     };
 
@@ -364,9 +392,7 @@ export const SimulationScreen = () => {
                                 fill="none"
                             />
 
-                            {/* Nodes (Dots) - Only show when not interacting or show all? 
-                                User asked for nodes. Let's keep them small.
-                            */}
+                            {/* Nodes (Dots) */}
                             {projectionData.dataSimulated.map((point, i) => (
                                 <Circle
                                     key={`node-${i}`}
@@ -420,7 +446,7 @@ export const SimulationScreen = () => {
                                         fill={theme.colors.onSurfaceVariant}
                                         textAnchor="middle"
                                     >
-                                        {`${projectionData.dataSimulated[selectedIndex].x.toFixed(1)} ${durationUnit === 'years' ? 'anos' : 'meses'}`}
+                                        {formatDurationLabel(projectionData.dataSimulated[selectedIndex].x, durationUnit)}
                                     </SvgText>
                                 </React.Fragment>
                             )}
@@ -451,7 +477,7 @@ export const SimulationScreen = () => {
                                     ? "Nunca (sem rendimento)"
                                     : timeToMillion > 100
                                         ? "> 100 anos"
-                                        : `${timeToMillion.toFixed(1)} anos`}
+                                        : formatDurationLabel(timeToMillion, 'years')}
                             </Text>
                         </View>
                     </View>
