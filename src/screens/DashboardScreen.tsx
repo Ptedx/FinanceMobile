@@ -132,7 +132,7 @@ export const DashboardScreen = ({ navigation }: any) => {
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Patrimônio</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.primary }]}>
+              <Text style={[styles.summaryValue, { color: dashboardData.netWorth < 0 ? theme.colors.error : theme.colors.primary }]}>
                 {formatValue(dashboardData.netWorth)}
               </Text>
             </View>

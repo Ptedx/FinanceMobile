@@ -28,15 +28,13 @@ export const useFinanceEngine = () => {
       })
       .reduce((sum, p) => sum + p.amount, 0);
 
-    const availableBalance = monthlyIncome - debitExpenses - monthlyInvoicePayments;
+    const rawBalance = monthlyIncome - debitExpenses - monthlyInvoicePayments;
+    const availableBalance = Math.max(0, rawBalance);
 
     // Net Worth = Assets (Cash) - Liabilities (Debt)
-    // Assets = availableBalance
-    // Liabilities = creditExpenses (Total Spent) - monthlyInvoicePayments (Amount Paid Back)
-    // We use Math.max(0, ...) to ensure that if we pay more than the *visible/loaded* expenses (e.g. paying a future bill or one from 3 months ago),
-    // we don't artificially inflate the Net Worth by treating the 'excess' payment as a negative liability.
-    // In that case, the Net Worth correctly drops because availableBalance drops, and the 'Liability' stays at 0 (or low).
-    const netWorth = availableBalance - Math.max(0, creditExpenses - monthlyInvoicePayments);
+    // We use the rawBalance for Net Worth to reflect the true financial position (including deficits/overdrafts),
+    // even if the displayed 'Available Balance' is clamped to 0 for UI friendliness.
+    const netWorth = rawBalance - Math.max(0, creditExpenses - monthlyInvoicePayments);
 
     // For now, projection equals available balance since we don't have future recurring items logic yet.
     const projection = availableBalance;
@@ -121,66 +119,105 @@ export const useFinanceEngine = () => {
       case 'ALL': startDate = null; break;
     }
 
-    const allTransactions = [
-      ...expenses.map(e => ({ date: new Date(e.date), value: -e.value })),
-      ...incomes.map(i => ({ date: new Date(i.date), value: i.value }))
-    ].sort((a, b) => a.date.getTime() - b.date.getTime());
+    // We need to simulate the "Cash" balance and "Debt" balance separately over time.
+    // Events that affect Cash: Income (+), Debit Expense (-), Invoice Payment (-)
+    // Events that affect Debt: Credit Expense (+), Invoice Payment (-)
 
-    // If the calculated start date is before the first transaction, 
-    // we should start from the first transaction instead of showing empty space.
-    let isClamped = false;
-    if (allTransactions.length > 0 && startDate) {
-      const firstTransactionDate = allTransactions[0].date;
-      if (startDate < firstTransactionDate) {
-        startDate = null;
-        isClamped = true;
+    // 1. Gather all events
+    const events: { date: Date; type: 'income' | 'debit_expense' | 'credit_expense' | 'invoice_payment'; value: number }[] = [];
+
+    incomes.forEach(i => events.push({ date: new Date(i.date), type: 'income', value: i.value }));
+    expenses.forEach(e => {
+      if (e.creditCardId) {
+        events.push({ date: new Date(e.date), type: 'credit_expense', value: e.value });
+      } else {
+        events.push({ date: new Date(e.date), type: 'debit_expense', value: e.value });
       }
+    });
+    invoicePayments.forEach(p => events.push({ date: new Date(p.date), type: 'invoice_payment', value: p.amount }));
+
+    events.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // 2. Simulate
+    let currentCash = 0;
+    let currentDebt = 0;
+    const historyPoints: { date: Date; cash: number; debt: number; netWorth: number }[] = [];
+
+    events.forEach(event => {
+      switch (event.type) {
+        case 'income':
+          currentCash += event.value;
+          break;
+        case 'debit_expense':
+          currentCash -= event.value;
+          break;
+        case 'invoice_payment':
+          currentCash -= event.value;
+          currentDebt -= event.value; // Reduces debt
+          break;
+        case 'credit_expense':
+          currentDebt += event.value;
+          break;
+      }
+
+      // We do NOT clamp currentCash to 0 here anymore, because we want the history 
+      // to reflect the true Net Worth (which includes deficits).
+      // However, we still clamp Debt to 0 just in case.
+      if (currentDebt < 0) currentDebt = 0;
+
+      historyPoints.push({
+        date: event.date,
+        cash: currentCash,
+        debt: currentDebt,
+        netWorth: currentCash - currentDebt
+      });
+    });
+
+    // 3. Filter and Format for Chart
+    // If no events, return flat line
+    if (historyPoints.length === 0) {
+      return [{ date: startDate || new Date(now.getFullYear(), 0, 1), value: 0 }, { date: now, value: 0 }];
     }
 
-    let currentBalance = 0;
+    let filteredPoints = startDate
+      ? historyPoints.filter(p => p.date >= startDate!)
+      : historyPoints;
 
-    // Calculate starting balance
-    if (startDate) {
-      const previousTransactions = allTransactions.filter(t => t.date < startDate!);
-      currentBalance = previousTransactions.reduce((sum, t) => sum + t.value, 0);
+    // If filtered is empty but we have history (e.g. all events before startDate),
+    // we should start with the state at startDate.
+    if (filteredPoints.length === 0 && historyPoints.length > 0) {
+      // Find the last state before startDate
+      const lastState = historyPoints[historyPoints.length - 1];
+      // Actually we want the state at the exact moment of startDate.
+      // Since we simulated everything, the last point is the current state.
+      // But we need to find the point just before startDate.
+      const stateAtStart = historyPoints.filter(p => p.date < startDate!).pop() || { cash: 0, debt: 0, netWorth: 0, date: startDate! };
+
+      filteredPoints.push({ ...stateAtStart, date: startDate! });
+    } else if (startDate && filteredPoints.length > 0 && filteredPoints[0].date > startDate) {
+      // Prepend the state at startDate if the first event in range is after startDate
+      const stateAtStart = historyPoints.filter(p => p.date < startDate!).pop() || { cash: 0, debt: 0, netWorth: 0, date: startDate! };
+      filteredPoints.unshift({ ...stateAtStart, date: startDate });
     }
 
-    const periodTransactions = startDate
-      ? allTransactions.filter(t => t.date >= startDate!)
-      : allTransactions;
-
-    const history: { date: Date; value: number }[] = [];
-
-    // Add initial point
-    if (startDate) {
-      history.push({ date: startDate, value: currentBalance });
-    } else if (isClamped && periodTransactions.length > 0) {
-      // If we clamped the start date (showing full history), add a point just before 
-      // the first transaction to represent the starting state (e.g., 0).
-      // This ensures the "Growth" calculation considers the starting balance.
-      history.push({ date: new Date(periodTransactions[0].date.getTime() - 60000), value: currentBalance });
-    }
+    const finalHistory: { date: Date; value: number }[] = [];
 
     // Use high granularity if the period is short OR if we have few data points
-    // This prevents "flat lines" when viewing long periods with sparse data
-    if (period === '1D' || period === '7D' || period === '1M' || periodTransactions.length < 50) {
-      // High granularity - keep every transaction
-      periodTransactions.forEach(t => {
-        currentBalance += t.value;
-        history.push({ date: t.date, value: currentBalance });
+    if (period === '1D' || period === '7D' || period === '1M' || filteredPoints.length < 50) {
+      filteredPoints.forEach(p => {
+        finalHistory.push({ date: p.date, value: p.netWorth });
       });
     } else {
-      // Monthly granularity - group by month
+      // Monthly granularity - group by month (taking the last value of the month)
       const groupedByMonth = new Map<string, number>();
 
-      periodTransactions.forEach(t => {
-        currentBalance += t.value;
-        const monthKey = format(t.date, 'yyyy-MM');
-        groupedByMonth.set(monthKey, currentBalance);
+      filteredPoints.forEach(p => {
+        const monthKey = format(p.date, 'yyyy-MM');
+        groupedByMonth.set(monthKey, p.netWorth);
       });
 
       groupedByMonth.forEach((value, key) => {
-        history.push({
+        finalHistory.push({
           date: new Date(key + '-01'),
           value
         });
@@ -188,14 +225,9 @@ export const useFinanceEngine = () => {
     }
 
     // Add final point (today)
-    history.push({ date: now, value: currentBalance });
+    finalHistory.push({ date: now, value: currentCash - currentDebt });
 
-    // If no data, return flat line
-    if (history.length === 0) {
-      return [{ date: startDate || new Date(now.getFullYear(), 0, 1), value: 0 }, { date: now, value: 0 }];
-    }
-
-    return history.sort((a, b) => a.date.getTime() - b.date.getTime());
+    return finalHistory.sort((a, b) => a.date.getTime() - b.date.getTime());
   };
 
   return {
