@@ -160,6 +160,92 @@ app.put('/users/preferences', authMiddleware, async (req: AuthRequest, res) => {
     }
 });
 
+// WhatsApp Integration Routes
+
+app.post('/integrations/generate-key', authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        const key = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit key
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 10); // Expires in 10 minutes
+
+        // Create or update token
+        // We want a unique key, so let's check if it exists (unlikely collision but possible)
+        // For simplicity, we just create. If collision, prisma throws, we catch.
+        // Better: Delete old tokens for this user first?
+        await prisma.integrationToken.deleteMany({ where: { userId: req.user!.userId } });
+
+        const token = await prisma.integrationToken.create({
+            data: {
+                key,
+                userId: req.user!.userId,
+                expiresAt
+            }
+        });
+
+        res.json({ key: token.key, expiresAt: token.expiresAt });
+    } catch (error: any) {
+        console.error('Generate Key Error:', error);
+        res.status(500).json({ error: 'Error generating key', details: error.message });
+    }
+});
+
+app.post('/integrations/link-whatsapp', async (req, res) => {
+    const { key, phone } = req.body;
+
+    try {
+        const token = await prisma.integrationToken.findUnique({
+            where: { key },
+            include: { user: true }
+        });
+
+        if (!token) {
+            return res.status(404).json({ error: 'Invalid key' });
+        }
+
+        if (new Date() > token.expiresAt) {
+            return res.status(400).json({ error: 'Key expired' });
+        }
+
+        // Link user
+        await prisma.user.update({
+            where: { id: token.userId },
+            data: { whatsappNumber: phone }
+        });
+
+        // Delete used token
+        await prisma.integrationToken.delete({ where: { id: token.id } });
+
+        res.json({ success: true, user: { name: token.user.name, email: token.user.email } });
+    } catch (error: any) {
+        console.error('Link WhatsApp Error:', error);
+        res.status(500).json({ error: 'Error linking WhatsApp', details: error.message });
+    }
+});
+
+app.post('/auth/whatsapp-login', async (req, res) => {
+    const { phone, secret } = req.body;
+    const N8N_SECRET = process.env.N8N_SECRET || 'n8n-secret-key'; // Should be in env
+
+    if (secret !== N8N_SECRET) {
+        return res.status(401).json({ error: 'Invalid secret' });
+    }
+
+    try {
+        const user = await prisma.user.findUnique({ where: { whatsappNumber: phone } });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found for this phone number' });
+        }
+
+        const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1d' });
+
+        res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+    } catch (error: any) {
+        console.error('WhatsApp Login Error:', error);
+        res.status(500).json({ error: 'Error logging in via WhatsApp', details: error.message });
+    }
+});
+
 // Protected Routes
 
 // Expenses
