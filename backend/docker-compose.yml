@@ -26,7 +26,7 @@ services:
       PORT: 3006
     depends_on:
       - postgres
-    command: sh -c "npx prisma db push && npm start"
+    command: sh -c "npx prisma db push --accept-data-loss && npm start"
     networks:
       - finance-network
 

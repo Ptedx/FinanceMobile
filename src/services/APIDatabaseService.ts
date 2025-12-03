@@ -226,4 +226,8 @@ export class APIDatabaseService implements IDatabaseService {
     async getInvoicePayments(cardId: string): Promise<any[]> {
         return fetchWithAuth(`/credit-cards/${cardId}/invoice-payments`);
     }
+
+    async generateIntegrationKey(): Promise<{ key: string, expiresAt: string }> {
+        return fetchWithAuth('/integrations/generate-key', { method: 'POST' });
+    }
 }

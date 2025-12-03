@@ -22,6 +22,17 @@ model User {
   creditCards CreditCard[]
   invoicePayments InvoicePayment[]
   themePreference String @default("light")
+  whatsappNumber  String?   @unique
+  integrationTokens IntegrationToken[]
+}
+
+model IntegrationToken {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  expiresAt DateTime
 }
 
 model Expense {

@@ -36,4 +36,5 @@ export interface IDatabaseService {
   payInvoice(cardId: string, amount: number, date: string): Promise<any>;
   cancelInvoicePayment(paymentId: string): Promise<void>;
   getInvoicePayments(cardId: string): Promise<any[]>;
+  generateIntegrationKey(): Promise<{ key: string, expiresAt: string }>;
 }
