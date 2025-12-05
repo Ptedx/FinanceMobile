@@ -294,6 +294,7 @@ app.put('/expenses/:id', authMiddleware, async (req: AuthRequest, res) => {
     const { category, value, date, paymentMethod, isRecurring, description, creditCardId } = req.body as ExpenseRequest;
 
     try {
+        console.log(`DEBUG PUT /expenses/${req.params.id} - User: ${req.user!.userId}`);
         const existing = await prisma.expense.findFirst({
             where: { id: req.params.id, userId: req.user!.userId }
         });
@@ -301,18 +302,19 @@ app.put('/expenses/:id', authMiddleware, async (req: AuthRequest, res) => {
         if (!existing) {
             return res.status(404).json({ error: 'Expense not found' });
         }
+        
+        const dataToUpdate: any = {};
+        if (category !== undefined) dataToUpdate.category = category;
+        if (value !== undefined) dataToUpdate.value = value;
+        if (date !== undefined) dataToUpdate.date = new Date(date);
+        if (paymentMethod !== undefined) dataToUpdate.paymentMethod = paymentMethod;
+        if (isRecurring !== undefined) dataToUpdate.isRecurring = isRecurring;
+        if (description !== undefined) dataToUpdate.description = description;
+        if (creditCardId !== undefined) dataToUpdate.creditCardId = creditCardId;
 
         const expense = await prisma.expense.update({
             where: { id: req.params.id },
-            data: {
-                category,
-                value,
-                date: new Date(date),
-                paymentMethod,
-                isRecurring,
-                description,
-                creditCardId: creditCardId || null,
-            },
+            data: dataToUpdate,
         });
         res.json(expense);
     } catch (error: any) {
@@ -322,9 +324,14 @@ app.put('/expenses/:id', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.delete('/expenses/:id', authMiddleware, async (req: AuthRequest, res) => {
-    await prisma.expense.deleteMany({
+    const result = await prisma.expense.deleteMany({
         where: { id: req.params.id, userId: req.user!.userId },
     });
+
+    if (result.count === 0) {
+        return res.status(404).json({ error: 'Expense not found or unauthorized' });
+    }
+
     res.json({ success: true });
 });
 
