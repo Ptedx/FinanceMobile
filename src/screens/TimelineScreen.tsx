@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, SectionList, TouchableOpacity, Alert, Platform, Dimensions, ScrollView } from 'react-native';
+import { View, StyleSheet, SectionList, TouchableOpacity, Alert, Platform, Dimensions, ScrollView, FlatList } from 'react-native';
 import { Text, useTheme, Icon, SegmentedButtons, TextInput, IconButton, Button, Chip, Portal, Modal } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useFinanceStore } from '../store/financeStore';
@@ -504,29 +504,37 @@ export const TimelineScreen = () => {
                                     <View style={styles.pickerRow}>
                                         <View style={styles.pickerColumn}>
                                             <Text style={styles.columnHeader}>Ano</Text>
-                                            <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
-                                                {YEARS.map(year => (
+                                            <FlatList
+                                                data={YEARS}
+                                                keyExtractor={(item) => item.toString()}
+                                                showsVerticalScrollIndicator={false}
+                                                getItemLayout={(data, index) => ({ length: 48, offset: 48 * index, index })}
+                                                initialScrollIndex={YEARS.indexOf(pickerYear)}
+                                                renderItem={({ item }) => (
                                                     <TouchableOpacity
-                                                        key={year}
-                                                        onPress={() => setPickerYear(year)}
-                                                        style={[styles.pickerItem, pickerYear === year && styles.pickerItemSelected]}
+                                                        onPress={() => setPickerYear(item)}
+                                                        style={[styles.pickerItem, pickerYear === item && styles.pickerItemSelected]}
                                                     >
-                                                        <Text style={[styles.pickerItemText, pickerYear === year && styles.pickerItemTextSelected]}>
-                                                            {year}
+                                                        <Text style={[styles.pickerItemText, pickerYear === item && styles.pickerItemTextSelected]}>
+                                                            {item}
                                                         </Text>
                                                     </TouchableOpacity>
-                                                ))}
-                                            </ScrollView>
+                                                )}
+                                            />
                                         </View>
 
                                         <View style={styles.pickerDivider} />
 
                                         <View style={styles.pickerColumn}>
                                             <Text style={styles.columnHeader}>Mês</Text>
-                                            <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
-                                                {MONTHS.map((month, index) => (
+                                            <FlatList
+                                                data={MONTHS}
+                                                keyExtractor={(item) => item}
+                                                showsVerticalScrollIndicator={false}
+                                                getItemLayout={(data, index) => ({ length: 48, offset: 48 * index, index })}
+                                                initialScrollIndex={currentDate.getMonth()}
+                                                renderItem={({ item, index }) => (
                                                     <TouchableOpacity
-                                                        key={month}
                                                         onPress={() => handleMonthSelect(index)}
                                                         style={[styles.pickerItem, (currentDate.getMonth() === index && currentDate.getFullYear() === pickerYear) && styles.pickerItemSelected]}
                                                     >
@@ -534,11 +542,11 @@ export const TimelineScreen = () => {
                                                             styles.pickerItemText,
                                                             (currentDate.getMonth() === index && currentDate.getFullYear() === pickerYear) && styles.pickerItemTextSelected
                                                         ]}>
-                                                            {month}
+                                                            {item}
                                                         </Text>
                                                     </TouchableOpacity>
-                                                ))}
-                                            </ScrollView>
+                                                )}
+                                            />
                                         </View>
                                     </View>
 
@@ -889,10 +897,12 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         marginHorizontal: 10,
     },
     pickerItem: {
-        paddingVertical: 10,
+        height: 48,
+        justifyContent: 'center',
         paddingHorizontal: 16,
         borderRadius: 8,
-        marginVertical: 2,
+        marginVertical: 0,
+        width: '100%',
     },
     pickerItemSelected: {
         backgroundColor: theme.colors.primaryContainer,
