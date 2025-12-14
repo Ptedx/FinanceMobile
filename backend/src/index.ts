@@ -160,6 +160,90 @@ app.put('/users/preferences', authMiddleware, async (req: AuthRequest, res) => {
     }
 });
 
+app.get('/auth/apikey', authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.user!.userId },
+            select: { apiKey: true }
+        });
+        res.json({ apiKey: user?.apiKey });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error fetching API Key' });
+    }
+});
+
+app.post('/auth/apikey', authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        const apiKey = 'sk_' + require('crypto').randomBytes(24).toString('hex');
+        const user = await prisma.user.update({
+            where: { id: req.user!.userId },
+            data: { apiKey }
+        });
+        res.json({ apiKey: user.apiKey });
+    } catch (error: any) {
+        console.error('Generate API Key Error:', error);
+        res.status(500).json({ error: 'Error generating API Key', details: error.message });
+    }
+});
+
+app.get('/finance/summary', authMiddleware, async (req: AuthRequest, res) => {
+    try {
+        const userId = req.user!.userId;
+        const now = new Date();
+        const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        endOfMonth.setHours(23, 59, 59, 999);
+
+        const [incomes, expenses, invoicePayments] = await Promise.all([
+            prisma.income.findMany({
+                where: { userId, date: { gte: startOfCurrentMonth, lte: endOfMonth } }
+            }),
+            prisma.expense.findMany({
+                where: { userId, date: { gte: startOfPreviousMonth, lte: endOfMonth } }
+            }),
+            prisma.invoicePayment.findMany({
+                where: { userId, date: { gte: startOfCurrentMonth, lte: endOfMonth } }
+            })
+        ]);
+
+        const monthlyIncome = incomes.reduce((sum, i) => sum + i.value, 0);
+        
+        // Calculate Debit Expenses for Balance (Includes Previous Month + Current Month)
+        const allDebitExpenses = expenses.filter(e => !e.creditCardId).reduce((sum, e) => sum + e.value, 0);
+        
+        // Calculate Monthly Expenses for Display (Current Month Only)
+        const currentMonthExpenses = expenses.filter(e => {
+            const d = new Date(e.date);
+            return d >= startOfCurrentMonth && d <= endOfMonth;
+        });
+        const monthlyTotalDisplay = currentMonthExpenses.reduce((sum, e) => sum + e.value, 0);
+
+        const creditExpenses = expenses.filter(e => !!e.creditCardId).reduce((sum, e) => sum + e.value, 0);
+        const monthlyInvoicePayments = invoicePayments.reduce((sum, p) => sum + p.amount, 0);
+
+        // Balance Calculation matches frontend: Income (This Month) - Debit Expenses (Last + This Month) - Invoice Payments (This Month)
+        const rawBalance = monthlyIncome - allDebitExpenses - monthlyInvoicePayments;
+        const availableBalance = Math.max(0, rawBalance);
+        
+        // Net Worth assumes similar logic? Frontend uses rawBalance for netWorth too.
+        // Frontend: const netWorth = rawBalance - Math.max(0, creditExpenses - monthlyInvoicePayments);
+        // Note: creditExpenses in frontend reduces ALL loaded credit expenses.
+        // so we use creditExpenses (from Prev + Current Month) here too.
+        const netWorth = rawBalance - Math.max(0, creditExpenses - monthlyInvoicePayments);
+
+        res.json({
+            availableBalance,
+            netWorth,
+            monthlyIncome,
+            monthlyExpenses: monthlyTotalDisplay // For display, show only current month
+        });
+    } catch (error: any) {
+        console.error('Finance Summary Error:', error);
+        res.status(500).json({ error: 'Error fetching finance summary' });
+    }
+});
+
 // WhatsApp Integration Routes
 
 app.post('/integrations/generate-key', authMiddleware, async (req: AuthRequest, res) => {
@@ -400,27 +484,37 @@ app.put('/incomes/:id', authMiddleware, async (req: AuthRequest, res) => {
 
         // Transaction to update income and allocations
         const income = await prisma.$transaction(async (tx) => {
-            // 1. Delete existing allocations
-            await tx.goalAllocation.deleteMany({
-                where: { incomeId: req.params.id }
-            });
+            // Only update allocations if provided
+            if (goalAllocations !== undefined) {
+                // 1. Delete existing allocations
+                await tx.goalAllocation.deleteMany({
+                    where: { incomeId: req.params.id }
+                });
 
-            // 2. Update income and create new allocations
-            return await tx.income.update({
-                where: { id: req.params.id },
-                data: {
-                    category,
-                    value,
-                    date: new Date(date),
-                    isRecurring,
-                    description,
-                    allocations: {
-                        create: goalAllocations?.map((alloc) => ({
+                // 2. Create new allocations
+                if (goalAllocations.length > 0) {
+                    await tx.goalAllocation.createMany({
+                        data: goalAllocations.map((alloc) => ({
+                            incomeId: req.params.id,
                             goalId: alloc.goalId,
                             amount: alloc.amount
-                        })) || []
-                    }
-                },
+                        }))
+                    });
+                }
+            }
+
+            // 3. Prepare data for partial update
+            const dataToUpdate: any = {};
+            if (category !== undefined) dataToUpdate.category = category;
+            if (value !== undefined) dataToUpdate.value = value;
+            if (date !== undefined) dataToUpdate.date = new Date(date);
+            if (isRecurring !== undefined) dataToUpdate.isRecurring = isRecurring;
+            if (description !== undefined) dataToUpdate.description = description;
+
+            // 4. Update income
+            return await tx.income.update({
+                where: { id: req.params.id },
+                data: dataToUpdate,
                 include: {
                     allocations: true
                 }
@@ -435,9 +529,14 @@ app.put('/incomes/:id', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.delete('/incomes/:id', authMiddleware, async (req: AuthRequest, res) => {
-    await prisma.income.deleteMany({
+    const result = await prisma.income.deleteMany({
         where: { id: req.params.id, userId: req.user!.userId },
     });
+
+    if (result.count === 0) {
+        return res.status(404).json({ error: 'Income not found or unauthorized' });
+    }
+
     res.json({ success: true });
 });
 

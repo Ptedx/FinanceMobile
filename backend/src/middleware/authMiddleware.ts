@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
 
+const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 
 export interface AuthRequest extends Request {
@@ -9,7 +11,24 @@ export interface AuthRequest extends Request {
     };
 }
 
-export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    const apiKey = req.headers['x-api-key'] as string;
+
+    if (apiKey) {
+        try {
+            const user = await prisma.user.findUnique({ where: { apiKey } });
+            if (user) {
+                req.user = { userId: user.id };
+                return next();
+            } else {
+                return res.status(401).json({ error: 'Invalid API Key' });
+            }
+        } catch (error) {
+            console.error('API Key Auth Error:', error);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
+
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {

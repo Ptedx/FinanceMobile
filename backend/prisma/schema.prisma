@@ -24,6 +24,7 @@ model User {
   themePreference String @default("light")
   whatsappNumber  String?   @unique
   integrationTokens IntegrationToken[]
+  apiKey          String?   @unique
 }
 
 model IntegrationToken {
