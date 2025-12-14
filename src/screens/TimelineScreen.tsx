@@ -559,9 +559,9 @@ export const TimelineScreen = () => {
 
                         {/* Summary Cards */}
                         <View style={styles.summaryContainer}>
-                            <View style={[styles.summaryCard, { backgroundColor: '#4361EE' }]}>
+                            <View style={[styles.summaryCard, { backgroundColor: theme.dark ? '#004D33' : theme.colors.primary }]}>
                                 <View style={styles.summaryIconBg}>
-                                    <Icon source="arrow-up" color="#4361EE" size={20} />
+                                    <Icon source="arrow-up" color={theme.dark ? '#004D33' : theme.colors.primary} size={20} />
                                 </View>
                                 <View>
                                     <Text style={styles.summaryLabel}>Receitas</Text>
@@ -569,13 +569,13 @@ export const TimelineScreen = () => {
                                 </View>
                             </View>
 
-                            <View style={[styles.summaryCard, { backgroundColor: '#FFB703' }]}>
-                                <View style={[styles.summaryIconBg, { backgroundColor: 'rgba(255,255,255,0.9)' }]}>
-                                    <Icon source="arrow-down" color="#FFB703" size={20} />
+                            <View style={[styles.summaryCard, { backgroundColor: theme.dark ? '#8B2E2E' : '#FF6B6B' }]}>
+                                <View style={styles.summaryIconBg}>
+                                    <Icon source="arrow-down" color={theme.dark ? '#8B2E2E' : '#FF6B6B'} size={20} />
                                 </View>
                                 <View>
-                                    <Text style={[styles.summaryLabel, { color: 'black' }]}>Despesas</Text>
-                                    <Text style={[styles.summaryValue, { color: 'black' }]}>{formatCurrency(processedData.totalExpense)}</Text>
+                                    <Text style={[styles.summaryLabel, { color: 'white' }]}>Despesas</Text>
+                                    <Text style={[styles.summaryValue, { color: 'white' }]}>{formatCurrency(processedData.totalExpense)}</Text>
                                 </View>
                             </View>
                         </View>
@@ -599,7 +599,7 @@ export const TimelineScreen = () => {
                                                         {data.income > 0 && (
                                                             <Text style={styles.barValueLabel}>{formatCompact(data.income)}</Text>
                                                         )}
-                                                        <View style={[styles.bar, { height: `${Math.max(incomeHeight, 2)}%`, backgroundColor: '#4361EE' }]} />
+                                                        <View style={[styles.bar, { height: `${Math.max(incomeHeight, 2)}%`, backgroundColor: theme.dark ? '#004D33' : theme.colors.primary }]} />
                                                     </View>
 
                                                     {/* Expense Bar & Label */}
@@ -607,7 +607,7 @@ export const TimelineScreen = () => {
                                                         {data.expense > 0 && (
                                                             <Text style={styles.barValueLabel}>{formatCompact(data.expense)}</Text>
                                                         )}
-                                                        <View style={[styles.bar, { height: `${Math.max(expenseHeight, 2)}%`, backgroundColor: '#FFB703' }]} />
+                                                        <View style={[styles.bar, { height: `${Math.max(expenseHeight, 2)}%`, backgroundColor: theme.dark ? '#8B2E2E' : '#FF6B6B' }]} />
                                                     </View>
                                                 </View>
                                                 <Text style={styles.barLabel}>{data.label}</Text>

@@ -314,11 +314,11 @@ const createStyles = (theme: any) =>
     StyleSheet.create({
         container: {
             flex: 1,
-            backgroundColor: theme.colors.primary, // Background behind header
+            backgroundColor: theme.dark ? '#001A10' : theme.colors.primary, // Darker background in dark mode
         },
         headerBackground: {
             // height: '35%', // Removed fixed height to allow content to push
-            backgroundColor: theme.colors.primary,
+            backgroundColor: theme.dark ? '#001A10' : theme.colors.primary, // Match container
             paddingHorizontal: spacing.md,
             paddingTop: Platform.OS === 'ios' ? 60 : 40,
             paddingBottom: spacing.xl + 20, // Add enough padding for the sheet overlap (20px) + spacing
@@ -409,7 +409,7 @@ const createStyles = (theme: any) =>
         // Content Sheet Styles
         contentSheet: {
             flex: 1,
-            backgroundColor: theme.colors.background,
+            backgroundColor: theme.dark ? '#000000' : theme.colors.background,
             borderTopLeftRadius: 30,
             borderTopRightRadius: 30,
             marginTop: -20, // Negative margin to overlap
@@ -438,12 +438,12 @@ const createStyles = (theme: any) =>
             fontWeight: '600',
         },
         chartWrapper: {
-            backgroundColor: theme.colors.surface,
+            backgroundColor: theme.dark ? '#1C1C1E' : theme.colors.surface,
             borderRadius: 16,
             padding: spacing.sm,
             // elevation: 2,
             borderWidth: 1,
-            borderColor: theme.colors.outlineVariant,
+            borderColor: theme.dark ? '#333333' : theme.colors.outlineVariant,
         },
 
         // Card Styles - Improved Contrast
