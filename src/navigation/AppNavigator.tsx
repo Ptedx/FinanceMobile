@@ -99,6 +99,10 @@ import { useFinanceStore } from '../store/financeStore';
 import { LoadingScreen } from '../screens/LoadingScreen';
 import { ErrorRetryScreen } from '../screens/ErrorRetryScreen';
 
+import { SettingsScreen } from '../screens/SettingsScreen';
+
+// ... imports
+
 export const AppNavigator = () => {
   const { theme, toggleTheme, isDarkMode, loadTheme } = useThemeStore();
   const { isAuthenticated, checkAuth, logout } = useAuthStore();
@@ -131,31 +135,28 @@ export const AppNavigator = () => {
         <Stack.Navigator
           screenOptions={{
             headerStyle: {
-              backgroundColor: theme.colors.surface,
+              backgroundColor: theme.colors.background, // Match background
+              elevation: 0, // Remove shadow
+              shadowOpacity: 0,
             },
             headerTintColor: theme.colors.onSurface,
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
           }}
         >
           <Stack.Screen
             name="Main"
             component={TabNavigator}
             options={{
-              headerShown: true,
-              title: 'Miranha Finance',
-              headerRight: () => (
-                <View style={{ flexDirection: 'row' }}>
-                  <IconButton
-                    icon={isDarkMode ? "weather-sunny" : "weather-night"}
-                    onPress={toggleTheme}
-                    iconColor={theme.colors.onSurface}
-                  />
-                  <IconButton
-                    icon="logout"
-                    onPress={() => logout()}
-                    iconColor={theme.colors.onSurface}
-                  />
-                </View>
-              ),
+              headerShown: false, // Hide default header for TabNavigator
+            }}
+          />
+          <Stack.Screen
+            name="Settings"
+            component={SettingsScreen}
+            options={{
+              title: 'Configurações',
             }}
           />
           <Stack.Screen

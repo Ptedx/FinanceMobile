@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { IconButton, FAB, useTheme, SegmentedButtons, Icon, Button, Portal, Modal } from 'react-native-paper';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
@@ -18,9 +18,12 @@ import { getInvoiceDates, isExpenseInInvoice } from '../utils/creditCardUtils';
 import { formatCurrency } from '../utils/formatters';
 import { db } from '../services/database';
 import * as Clipboard from 'expo-clipboard';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { LoadingScreen } from './LoadingScreen';
 import { ErrorRetryScreen } from './ErrorRetryScreen';
+
+const { width } = Dimensions.get('window');
 
 export const DashboardScreen = ({ navigation }: any) => {
     const theme = useTheme();
@@ -29,46 +32,14 @@ export const DashboardScreen = ({ navigation }: any) => {
     const [selectedPeriod, setSelectedPeriod] = useState<'1D' | '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('7D');
 
     const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
-
-    const { dashboardData, getSpendingInsights, getNetWorthHistory, getComparisonWithLastMonth } = useFinanceEngine();
-
     const [sheetVisible, setSheetVisible] = useState(false);
-    const [integrationModalVisible, setIntegrationModalVisible] = useState(false);
-    const [integrationKey, setIntegrationKey] = useState<string | null>(null);
-    const [keyExpiresAt, setKeyExpiresAt] = useState<string | null>(null);
-    const [isGeneratingKey, setIsGeneratingKey] = useState(false);
 
-    const handleGenerateKey = async () => {
-        setIsGeneratingKey(true);
-        try {
-            const { key, expiresAt } = await db.generateIntegrationKey();
-            setIntegrationKey(key);
-            setKeyExpiresAt(expiresAt);
-            setIntegrationModalVisible(true);
-        } catch (error) {
-            console.error('Error generating key:', error);
-            // You might want to show an alert here
-        } finally {
-            setIsGeneratingKey(false);
-        }
-    };
+    const { dashboardData, getSpendingInsights, getNetWorthHistory } = useFinanceEngine();
 
-    const copyToClipboard = async () => {
-        if (integrationKey) {
-            await Clipboard.setStringAsync(integrationKey);
-        }
-    };
-
-    if (isLoading) {
-        return <LoadingScreen />;
-    }
-
-    if (error) {
-        return <ErrorRetryScreen error={error} onRetry={retry} />;
-    }
+    if (isLoading) return <LoadingScreen />;
+    if (error) return <ErrorRetryScreen error={error} onRetry={retry} />;
 
     const insights = getSpendingInsights();
-    const comparison = getComparisonWithLastMonth();
     const netWorthHistory = getNetWorthHistory(selectedPeriod);
 
     const categoryData = Object.entries(insights.categoryBreakdown)
@@ -81,6 +52,9 @@ export const DashboardScreen = ({ navigation }: any) => {
         }))
         .sort((a, b) => b.value - a.value);
 
+    // Limit category data to top 5 to avoid overcrowding
+    const topCategoryData = categoryData.slice(0, 5);
+
     const unreadAlerts = alerts
         .filter(a => !a.isRead && !dismissedAlerts.includes(a.id))
         .slice(0, 3);
@@ -90,17 +64,7 @@ export const DashboardScreen = ({ navigation }: any) => {
         .filter(g => g.progress >= 0.5 && g.progress < 1)
         .sort((a, b) => b.progress - a.progress);
 
-    const getMotivationalMessage = (progress: number) => {
-        if (progress >= 0.9) return "Quase lá! A reta final!";
-        if (progress >= 0.7) return "Falta pouco! Mantenha o foco!";
-        return "Você está na metade do caminho! Continue assim!";
-    };
-
-    const handleDismissAlert = (id: string) => {
-        setDismissedAlerts(prev => [...prev, id]);
-    };
-
-    const formatValue = (value: number, prefix: string = '') => {
+    const formatValue = (value: number) => {
         if (!isValuesVisible) return 'R$ ••••••';
         return formatCurrency(value);
     };
@@ -108,356 +72,226 @@ export const DashboardScreen = ({ navigation }: any) => {
     const getGreeting = () => {
         const hour = new Date().getHours();
         const userName = user?.name?.split(' ')[0] || 'Usuário';
-
-        if (hour >= 5 && hour < 12) {
-            return `Bom dia, ${userName}!`;
-        } else if (hour >= 12 && hour < 18) {
-            return `Boa tarde, ${userName}!`;
-        } else {
-            return `Boa noite, ${userName}!`;
-        }
+        if (hour >= 5 && hour < 12) return `Bom dia, ${userName}!`;
+        if (hour >= 12 && hour < 18) return `Boa tarde, ${userName}!`;
+        return `Boa noite, ${userName}!`;
     };
 
     const styles = createStyles(theme);
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.greeting}>{getGreeting()}</Text>
-                    <Text style={styles.date}>
-                        {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
-                    </Text>
+            {/* Blue Background Header Area */}
+            <View style={styles.headerBackground}>
+                <View style={styles.headerTopRow}>
+                    <View>
+                        <Text style={styles.greetingText}>{getGreeting()}</Text>
+                        <Text style={styles.dateText}>
+                            {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                        </Text>
+                    </View>
+                    <View style={styles.headerIcons}>
+                        <TouchableOpacity onPress={toggleValuesVisibility} style={styles.iconButton}>
+                            <Icon source={isValuesVisible ? "eye" : "eye-off"} size={22} color="white" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => navigation.navigate('Alerts')} style={styles.iconButton}>
+                            <Icon source="bell-outline" size={22} color="white" />
+                            {unreadAlerts.length > 0 && <View style={styles.badge} />}
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.iconButton}>
+                            <Icon source="cog-outline" size={22} color="white" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
-                <View style={{ flexDirection: 'row' }}>
-                    <IconButton
-                        icon={isValuesVisible ? "eye" : "eye-off"}
-                        size={24}
-                        onPress={toggleValuesVisibility}
-                    />
-                    <IconButton icon="whatsapp" size={24} onPress={handleGenerateKey} loading={isGeneratingKey} />
-                    <IconButton icon="bell" size={24} onPress={() => navigation.navigate('Alerts')} />
+
+                {/* Main Balance Display - Centered in Blue Area */}
+                <View style={styles.balanceContainer}>
+                    <Text style={styles.balanceLabel}>Saldo Disponível</Text>
+                    <Text style={styles.balanceValue}>{formatValue(dashboardData.availableBalance)}</Text>
+
+                    <Text style={styles.netWorthLabel}>
+                        Patrimônio: <Text style={styles.netWorthValue}>{formatValue(dashboardData.netWorth)}</Text>
+                    </Text>
+
+                    <View style={styles.miniStatsContainer}>
+                        <View style={styles.miniStat}>
+                            <Icon source="arrow-up-circle" size={16} color="#A5F3A5" />
+                            <Text style={styles.miniStatLabel}>Receitas</Text>
+                            <Text style={styles.miniStatValue}>{formatValue(dashboardData.monthlyIncome)}</Text>
+                        </View>
+                        <View style={styles.miniStatSeparator} />
+                        <View style={styles.miniStat}>
+                            <Icon source="arrow-down-circle" size={16} color="#FFB4AB" />
+                            <Text style={styles.miniStatLabel}>Despesas</Text>
+                            <Text style={styles.miniStatValue}>{formatValue(dashboardData.monthlyTotal)}</Text>
+                        </View>
+                    </View>
                 </View>
             </View>
 
-            <ScrollView
-                style={styles.content}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
-                {unreadAlerts.map(alert => (
-                    <AlertBanner
-                        key={alert.id}
-                        alert={alert}
-                        onDismiss={() => handleDismissAlert(alert.id)}
-                    />
-                ))}
+            {/* White Sheet Content 'Pulling Up' */}
+            <View style={styles.contentSheet}>
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                >
+                    {/* Alerts Banner inside scroll */}
+                    {unreadAlerts.map(alert => (
+                        <AlertBanner key={alert.id} alert={alert} onDismiss={() => {
+                            setDismissedAlerts(prev => [...prev, alert.id]);
+                            markAlertAsRead(alert.id);
+                        }} />
+                    ))}
 
-                <Card style={styles.summaryCard}>
-                    <Text style={styles.cardTitle}>Resumo do mês</Text>
+                    {/* Quick Actions / Summary Chips */}
+                    {/* Could be replaced by "Services" icons if desired, but sticking to summary for now */}
 
-                    {/* Row 1: Net Worth & Available Balance */}
-                    <View style={styles.summaryRow}>
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryLabel}>Patrimônio</Text>
-                            <Text style={[styles.summaryValue, { color: dashboardData.netWorth < 0 ? theme.colors.error : theme.colors.primary }]}>
-                                {formatValue(dashboardData.netWorth)}
-                            </Text>
+                    {/* Charts Section */}
+                    <View style={styles.sectionContainer}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Análise Patrimonial</Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('Simulation')}>
+                                <Text style={styles.linkText}>Simular</Text>
+                            </TouchableOpacity>
                         </View>
-                        <View style={styles.summaryDivider} />
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryLabel}>Saldo Disponível</Text>
-                            <Text style={[styles.summaryValue, { color: theme.colors.onSurface }]}>
-                                {formatValue(dashboardData.availableBalance)}
-                            </Text>
-                        </View>
-                    </View>
 
-                    <View style={styles.horizontalDivider} />
+                        <View style={styles.chartWrapper}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>
+                                <SegmentedButtons
+                                    value={selectedPeriod}
+                                    onValueChange={value => setSelectedPeriod(value as any)}
+                                    buttons={[
+                                        { value: '7D', label: '7D' },
+                                        { value: '1M', label: '1M' },
+                                        { value: '3M', label: '3M' },
+                                        { value: '1Y', label: '1A' },
+                                    ]}
+                                    density="small"
+                                    style={{ marginBottom: 8 }}
+                                />
+                            </ScrollView>
 
-                    {/* Row 2: Flows */}
-                    <View style={styles.summaryRow}>
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryLabel}>Receitas</Text>
-                            <Text style={[styles.summaryValue, { color: (theme.colors as any).success }]}>
-                                {formatValue(dashboardData.monthlyIncome)}
-                            </Text>
-                            {isValuesVisible && (
-                                <View style={{ marginTop: 8, width: '100%', paddingHorizontal: 12 }}>
-                                    {INCOME_CATEGORIES.map(cat => {
-                                        const catTotal = incomes
-                                            .filter(i => i.category === cat.value && new Date(i.date).getMonth() === new Date().getMonth())
-                                            .reduce((sum, i) => sum + i.value, 0);
-
-                                        if (catTotal === 0) return null;
-
-                                        return (
-                                            <View key={cat.value} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
-                                                <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>{cat.label}:</Text>
-                                                <Text style={{ ...typography.caption, color: theme.colors.onSurface }}>
-                                                    {formatCurrency(catTotal)}
-                                                </Text>
-                                            </View>
-                                        );
-                                    })}
-                                    <Text style={{ ...typography.caption, color: theme.colors.outline, textAlign: 'center', marginTop: 4, fontSize: 10 }}>
-                                        (Total do Mês)
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-                        <View style={styles.summaryDivider} />
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryLabel}>Gastos</Text>
-                            <Text style={[styles.summaryValue, { color: theme.colors.error }]}>
-                                {formatValue(dashboardData.monthlyTotal)}
-                            </Text>
-                            {isValuesVisible && (
-                                <View style={{ marginTop: 8, width: '100%', paddingHorizontal: 12 }}>
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
-                                        <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>Débito:</Text>
-                                        <Text style={{ ...typography.caption, color: theme.colors.onSurface }}>
-                                            {formatCurrency(expenses.filter(e => !e.creditCardId && new Date(e.date).getMonth() === new Date().getMonth()).reduce((sum, e) => sum + e.value, 0))}
-                                        </Text>
-                                    </View>
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                        <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>Crédito:</Text>
-                                        <Text style={{ ...typography.caption, color: theme.colors.onSurface }}>
-                                            {formatCurrency(expenses.filter(e => !!e.creditCardId && new Date(e.date).getMonth() === new Date().getMonth()).reduce((sum, e) => sum + e.value, 0))}
-                                        </Text>
-                                    </View>
-                                    <View style={{ alignItems: 'center', marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: theme.colors.outline }}>
-                                        <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant, textAlign: 'center' }}>Restante após pgto faturas:</Text>
-                                        <Text style={{ ...typography.caption, color: 'rgb(186, 26, 26)', fontWeight: 'bold' }}>
-                                            {formatCurrency(Math.max(0, dashboardData.monthlyTotal - dashboardData.monthlyInvoicePayments))}
-                                        </Text>
-                                    </View>
-                                    <Text style={{ ...typography.caption, color: theme.colors.outline, textAlign: 'center', marginTop: 4, fontSize: 10 }}>
-                                        (Total do Mês)
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-                    </View>
-                </Card>
-
-                <Card style={styles.summaryCard}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-                        <Text style={{ ...typography.h3, color: theme.colors.onSurface, marginBottom: 0 }}>Meus Cartões</Text>
-                        <IconButton
-                            icon="plus"
-                            size={20}
-                            onPress={() => navigation.navigate('AddCreditCard')}
-                        />
-                    </View>
-
-                    {creditCards.length === 0 ? (
-                        <Text style={styles.emptyText}>Nenhum cartão cadastrado.</Text>
-                    ) : (
-                        creditCards.map(card => {
-                            const { startDate, endDate } = getInvoiceDates(card.closingDay);
-
-                            const invoice = expenses
-                                .filter(e =>
-                                    e.creditCardId === card.id &&
-                                    isExpenseInInvoice(new Date(e.date), startDate, endDate)
-                                )
-                                .reduce((sum, e) => sum + e.value, 0);
-
-                            const { invoicePayments } = useFinanceStore.getState(); // Or better, get it from the hook above if added
-                            // Actually, I should add invoicePayments to the destructuring at the top of the component
-                            // But for this chunk, I'll access it from props if available or store.
-                            // Wait, I can't easily change the top of the file in this chunk.
-                            // I'll check if `invoicePayments` is already destructured.
-                            // Yes, line 26: const { ..., invoicePayments, ... } = useFinanceStore();
-
-                            const payments = invoicePayments
-                                .filter(p =>
-                                    p.creditCardId === card.id &&
-                                    isExpenseInInvoice(new Date(p.date), startDate, endDate)
-                                )
-                                .reduce((sum, p) => sum + p.amount, 0);
-
-                            const remainingInvoice = Math.max(0, invoice - payments);
-
-                            const percentage = (remainingInvoice / card.limit) * 100;
-                            const progress = Math.min(percentage / 100, 1);
-
-                            return (
-                                <TouchableOpacity
-                                    key={card.id}
-                                    style={{ marginBottom: spacing.md }}
-                                    onPress={() => navigation.navigate('AddCreditCard', { card: card })}
-                                >
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                        <Text style={{ ...typography.body, color: theme.colors.onSurface, fontWeight: '500' }}>
-                                            {card.name} {card.last4Digits ? `•••• ${card.last4Digits}` : ''}
-                                        </Text>
-                                        <View style={{ alignItems: 'flex-end' }}>
-                                            <Text style={{ ...typography.body, color: theme.colors.onSurface }}>
-                                                {formatValue(remainingInvoice)} <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>/ {formatValue(card.limit)}</Text>
-                                            </Text>
-                                            {payments > 0 && (
-                                                <Text style={{ ...typography.caption, color: theme.colors.primary }}>
-                                                    Restante de R$ {formatValue(invoice)}
-                                                </Text>
-                                            )}
-                                        </View>
-                                    </View>
-                                    <ProgressBar
-                                        value={remainingInvoice}
-                                        max={card.limit}
-                                        color={theme.colors.primary}
-                                    />
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-                                        <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>
-                                            {new Date().getDate() <= card.closingDay ? 'Fatura Aberta' : 'Fatura Próximo Mês'}
-                                        </Text>
-                                        <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant }}>
-                                            Vence dia {card.dueDay}
-                                        </Text>
-                                    </View>
-                                </TouchableOpacity>
-                            );
-                        })
-                    )}
-                </Card>
-
-                <Card style={styles.chartCard}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-                        <View>
-                            <Text style={{ ...typography.h3, color: theme.colors.onSurface }}>Crescimento Patrimonial</Text>
                             {netWorthHistory.length > 1 && (
-                                (() => {
-                                    const startValue = netWorthHistory[0].value;
-                                    const endValue = netWorthHistory[netWorthHistory.length - 1].value;
-                                    const diff = endValue - startValue;
-                                    const percentage = startValue !== 0 ? (diff / Math.abs(startValue)) * 100 : (diff > 0 ? 100 : 0);
-                                    const isPositive = diff >= 0;
+                                <NetWorthChart data={netWorthHistory} period={selectedPeriod} hideValues={!isValuesVisible} />
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Credit Cards Section */}
+                    <View style={styles.sectionContainer}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Cartões</Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('AddCreditCard')}>
+                                <Icon source="plus-circle-outline" size={24} color={theme.colors.primary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {creditCards.length === 0 ? (
+                            <Text style={styles.emptyText}>Nenhum cartão cadastrado.</Text>
+                        ) : (
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingHorizontal: 4 }}>
+                                {creditCards.map(card => {
+                                    const { startDate, endDate } = getInvoiceDates(card.closingDay);
+                                    const invoice = expenses
+                                        .filter(e => e.creditCardId === card.id && isExpenseInInvoice(new Date(e.date), startDate, endDate))
+                                        .reduce((sum, e) => sum + e.value, 0);
+
+                                    const payments = invoicePayments
+                                        .filter(p => p.creditCardId === card.id && isExpenseInInvoice(new Date(p.date), startDate, endDate))
+                                        .reduce((sum, p) => sum + p.amount, 0);
+
+                                    const remainingInvoice = Math.max(0, invoice - payments);
+
+                                    // Accessibility: Ensure high contrast.
+                                    // If card has custom color, we try to use it, else default to a specific set.
+                                    const cardBg = card.color || theme.colors.surfaceVariant;
+                                    const isLight = true; // simplifying logic, could use color utils to check contrast
+                                    // Forcing a secure style:
 
                                     return (
-                                        <Text style={{
-                                            ...typography.bodySmall,
-                                            color: isPositive ? (theme.colors as any).success : theme.colors.error,
-                                            fontWeight: 'bold'
-                                        }}>
-                                            {isValuesVisible ? (
-                                                <>
-                                                    {isPositive ? '+' : ''}R$ {diff.toFixed(2)} ({isPositive ? '+' : ''}{percentage.toFixed(1)}%)
-                                                </>
-                                            ) : 'R$ ••••••'}
-                                        </Text>
+                                        <TouchableOpacity
+                                            key={card.id}
+                                            style={[styles.cardItem, { backgroundColor: theme.colors.elevation.level2 }]}
+                                            onPress={() => navigation.navigate('AddCreditCard', { card: card })}
+                                        >
+                                            <View style={styles.cardHeader}>
+                                                <Text style={[styles.cardName, { color: theme.colors.onSurface }]}>{card.name}</Text>
+                                                <Icon source={card.type === 'visa' ? 'credit-card' : 'credit-card-outline'} size={24} color={theme.colors.secondary} />
+                                            </View>
+
+                                            <Text style={styles.cardLast4}>•••• {card.last4Digits || '0000'}</Text>
+
+                                            <View style={styles.cardFooter}>
+                                                <View>
+                                                    <Text style={styles.cardLabel}>Fatura Atual</Text>
+                                                    <Text style={[styles.cardValue, { color: theme.colors.primary }]}>{formatValue(remainingInvoice)}</Text>
+                                                </View>
+                                                <View style={{ alignItems: 'flex-end' }}>
+                                                    <Text style={styles.cardLabel}>Limite</Text>
+                                                    <Text style={styles.cardLimit}>{formatValue(card.limit)}</Text>
+                                                </View>
+                                            </View>
+
+                                            <ProgressBar
+                                                value={remainingInvoice}
+                                                max={card.limit}
+                                                color={invoice > card.limit * 0.8 ? theme.colors.error : theme.colors.primary}
+                                                showPercentage={false}
+                                            />
+                                        </TouchableOpacity>
                                     );
-                                })()
-                            )}
-                        </View>
-                        <Button
-                            mode="contained-tonal"
-                            icon="rocket-launch"
-                            onPress={() => navigation.navigate('Simulation')}
-                            compact
-                        >
-                            Simular
-                        </Button>
+                                })}
+                            </ScrollView>
+                        )}
                     </View>
 
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>
-                        <SegmentedButtons
-                            value={selectedPeriod}
-                            onValueChange={value => setSelectedPeriod(value as any)}
-                            buttons={[
-                                { value: '1D', label: '1D' },
-                                { value: '7D', label: '7D' },
-                                { value: '1M', label: '1M' },
-                                { value: '3M', label: '3M' },
-                                { value: '6M', label: '6M' },
-                                { value: '1Y', label: '1A' },
-                                { value: 'ALL', label: 'Tudo' },
-                            ]}
-                            density="medium"
-                            style={{ minWidth: 300 }}
-                        />
-                    </ScrollView>
-
-                    {
-                        netWorthHistory.length > 1 && !netWorthHistory.some(d => isNaN(d.value) || isNaN(d.date.getTime())) && (
-                            <NetWorthChart data={netWorthHistory} period={selectedPeriod} hideValues={!isValuesVisible} />
-                        )
-                    }
-                </Card>
-
-                {activeGoals.length > 0 && (
-                    <Card style={styles.budgetCard}>
-                        <Text style={styles.cardTitle}>Metas em Progresso</Text>
-                        {activeGoals.map(goal => (
-                            <View key={goal.id} style={styles.budgetItem}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                    <Text style={{ ...typography.bodySmall, color: theme.colors.onSurface }}>{goal.title}</Text>
-                                    <Text style={{ ...typography.caption, color: theme.colors.primary, fontWeight: 'bold' }}>
-                                        {(goal.progress * 100).toFixed(0)}%
-                                    </Text>
-                                </View>
-                                <ProgressBar
-                                    value={goal.currentAmount}
-                                    max={goal.targetAmount}
-                                    showPercentage={false}
-                                    color={(theme.colors as any).success}
-                                />
-                                <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant, marginTop: 4, fontStyle: 'italic' }}>
-                                    {getMotivationalMessage(goal.progress)}
-                                </Text>
+                    {/* Goals Section */}
+                    {activeGoals.length > 0 && (
+                        <View style={styles.sectionContainer}>
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>Metas</Text>
                             </View>
-                        ))}
-                    </Card>
-                )}
-
-                {categoryData.length > 0 && (
-                    <Card style={styles.chartCard}>
-                        <Text style={styles.cardTitle}>Gastos por Categoria</Text>
-                        <AnimatedBarChart data={categoryData} hideValues={!isValuesVisible} />
-                    </Card>
-                )}
-
-                <Card style={styles.budgetCard}>
-                    <Text style={styles.cardTitle}>Orçamentos</Text>
-                    {dashboardData.budgetProgress.length === 0 ? (
-                        <Text style={styles.emptyText}>
-                            Nenhum orçamento definido. Toque em "Orçamentos" para começar.
-                        </Text>
-                    ) : (
-                        dashboardData.budgetProgress.map(budget => (
-                            <View key={budget.category} style={styles.budgetItem}>
-                                <View style={styles.budgetHeader}>
-                                    <View style={styles.budgetIconContainer}>
-                                        <Icon source={getCategoryIcon(budget.category)} size={24} color={getCategoryColor(budget.category)} />
-                                        <Text style={styles.budgetLabel}>{getCategoryLabel(budget.category)}</Text>
+                            {activeGoals.map(goal => (
+                                <TouchableOpacity
+                                    key={goal.id}
+                                    style={[styles.goalItem, { backgroundColor: theme.colors.elevation.level1 }]}
+                                    onPress={() => navigation.navigate('Goals')}
+                                >
+                                    <View style={styles.goalHeader}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                            <View style={{ backgroundColor: theme.colors.secondaryContainer, padding: 8, borderRadius: 8 }}>
+                                                <Icon source="flag-variant" size={20} color={theme.colors.onSecondaryContainer} />
+                                            </View>
+                                            <Text style={styles.goalTitle}>{goal.title}</Text>
+                                        </View>
+                                        <Text style={styles.goalPercentage}>{(goal.progress * 100).toFixed(0)}%</Text>
                                     </View>
-                                    <Text style={[styles.budgetPercentage, { color: budget.status === 'exceeded' ? theme.colors.error : theme.colors.primary }]}>
-                                        {budget.percentage.toFixed(0)}%
-                                    </Text>
-                                </View>
-                                <ProgressBar
-                                    value={budget.spent}
-                                    max={budget.limitAmount}
-                                    showPercentage={false}
-                                    color={budget.status === 'exceeded' ? theme.colors.error : budget.status === 'warning' ? (theme.colors as any).warning : theme.colors.primary}
-                                />
-                                <Text style={styles.budgetAmount}>
-                                    {formatValue(budget.spent)} / {formatValue(budget.limitAmount)}
-                                </Text>
-                            </View>
-                        ))
+                                    <ProgressBar value={goal.currentAmount} max={goal.targetAmount} showPercentage={false} />
+                                </TouchableOpacity>
+                            ))}
+                        </View>
                     )}
-                </Card>
 
-                <View style={styles.bottomPadding} />
-            </ScrollView>
+                    {/* Spending Breakdown */}
+                    {topCategoryData.length > 0 && (
+                        <View style={styles.sectionContainer}>
+                            <Text style={styles.sectionTitle}>Gastos por Categoria</Text>
+                            <View style={styles.chartWrapper}>
+                                <AnimatedBarChart data={topCategoryData} hideValues={!isValuesVisible} />
+                            </View>
+                        </View>
+                    )}
+
+                    <View style={{ height: 80 }} />
+                </ScrollView>
+            </View>
 
             <FAB
                 icon="plus"
                 style={styles.fab}
                 onPress={() => setSheetVisible(true)}
-                color={theme.colors.surface}
+                color={theme.colors.onPrimaryContainer}
+                theme={{ colors: { primaryContainer: theme.colors.primaryContainer } }}
             />
 
             <TransactionTypeSheet
@@ -472,32 +306,6 @@ export const DashboardScreen = ({ navigation }: any) => {
                     navigation.navigate('AddIncome');
                 }}
             />
-
-            <Portal>
-                <Modal visible={integrationModalVisible} onDismiss={() => setIntegrationModalVisible(false)} contentContainerStyle={{ backgroundColor: theme.colors.surface, padding: 20, margin: 20, borderRadius: 8 }}>
-                    <Text style={{ ...typography.h3, color: theme.colors.onSurface, marginBottom: 10 }}>Integração WhatsApp</Text>
-                    <Text style={{ ...typography.body, color: theme.colors.onSurfaceVariant, marginBottom: 20 }}>
-                        Use a chave abaixo para vincular seu WhatsApp ao FinanceMobile. Envie esta chave para o nosso bot no WhatsApp.
-                    </Text>
-
-                    <View style={{ backgroundColor: theme.colors.surfaceVariant, padding: 15, borderRadius: 8, alignItems: 'center', marginBottom: 20 }}>
-                        <Text style={{ ...typography.h1, color: theme.colors.primary, letterSpacing: 4 }}>
-                            {integrationKey}
-                        </Text>
-                        <Text style={{ ...typography.caption, color: theme.colors.onSurfaceVariant, marginTop: 5 }}>
-                            Expira em 10 minutos
-                        </Text>
-                    </View>
-
-                    <Button mode="contained" onPress={copyToClipboard} icon="content-copy" style={{ marginBottom: 10 }}>
-                        Copiar Chave
-                    </Button>
-
-                    <Button mode="outlined" onPress={() => setIntegrationModalVisible(false)}>
-                        Fechar
-                    </Button>
-                </Modal>
-            </Portal>
         </View>
     );
 };
@@ -506,118 +314,210 @@ const createStyles = (theme: any) =>
     StyleSheet.create({
         container: {
             flex: 1,
-            backgroundColor: theme.colors.background,
+            backgroundColor: theme.colors.primary, // Background behind header
         },
-        header: {
+        headerBackground: {
+            // height: '35%', // Removed fixed height to allow content to push
+            backgroundColor: theme.colors.primary,
+            paddingHorizontal: spacing.md,
+            paddingTop: Platform.OS === 'ios' ? 60 : 40,
+            paddingBottom: spacing.xl + 20, // Add enough padding for the sheet overlap (20px) + spacing
+        },
+        headerTopRow: {
             flexDirection: 'row',
             justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: spacing.md,
-            paddingTop: spacing.xl,
-            backgroundColor: theme.colors.surface,
+            alignItems: 'flex-start',
+            marginBottom: spacing.md,
         },
-        greeting: {
-            ...typography.h2,
-            color: theme.colors.onSurface,
+        greetingText: {
+            ...typography.h3,
+            color: 'white',
+            fontWeight: 'bold',
         },
-        date: {
+        dateText: {
             ...typography.bodySmall,
-            color: theme.colors.onSurfaceVariant,
+            color: 'rgba(255,255,255,0.8)',
             textTransform: 'capitalize',
         },
-        content: {
+        headerIcons: {
+            flexDirection: 'row',
+            gap: 4,
+        },
+        iconButton: {
+            padding: 8,
+        },
+        badge: {
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: theme.colors.error,
+        },
+        balanceContainer: {
+            alignItems: 'center',
+            marginTop: spacing.sm,
+        },
+        balanceLabel: {
+            color: 'rgba(255,255,255,0.8)',
+            fontSize: 14,
+            marginBottom: 4,
+        },
+        balanceValue: {
+            fontSize: 40,
+            fontWeight: 'bold',
+            color: 'white',
+            marginBottom: spacing.xs, // Reduced margin
+        },
+        netWorthLabel: {
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: 12,
+            marginBottom: spacing.lg, // moved spacing here
+        },
+        netWorthValue: {
+            color: 'rgba(255,255,255,0.9)',
+            fontWeight: 'bold',
+        },
+        miniStatsContainer: {
+            flexDirection: 'row',
+            backgroundColor: 'rgba(255,255,255,0.15)',
+            borderRadius: 16,
+            padding: 12,
+            width: '100%',
+        },
+        miniStat: {
             flex: 1,
+            alignItems: 'center',
+            gap: 4,
+        },
+        miniStatSeparator: {
+            width: 1,
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            marginHorizontal: 8,
+        },
+        miniStatLabel: {
+            color: 'rgba(255,255,255,0.9)',
+            fontSize: 12,
+        },
+        miniStatValue: {
+            color: 'white',
+            fontWeight: 'bold',
+            fontSize: 14,
+        },
+
+        // Content Sheet Styles
+        contentSheet: {
+            flex: 1,
+            backgroundColor: theme.colors.background,
+            borderTopLeftRadius: 30,
+            borderTopRightRadius: 30,
+            marginTop: -20, // Negative margin to overlap
+            overflow: 'hidden',
         },
         scrollContent: {
             padding: spacing.md,
+            paddingTop: spacing.lg,
         },
-        summaryCard: {
-            marginBottom: spacing.md,
+        sectionContainer: {
+            marginBottom: spacing.lg,
         },
-        cardTitle: {
-            ...typography.h3,
-            color: theme.colors.onSurface,
-            marginBottom: spacing.md,
-        },
-        summaryRow: {
-            flexDirection: 'row',
-            // alignItems: 'center', // Removed to allow stretch/top alignment
-        },
-        summaryItem: {
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'flex-start', // Ensure content starts at top
-        },
-        summaryDivider: {
-            width: 1,
-            // height: 40, // Removed fixed height to allow stretch
-            backgroundColor: theme.colors.outline,
-        },
-        horizontalDivider: {
-            height: 1,
-            backgroundColor: theme.colors.outline,
-            marginVertical: spacing.md,
-            opacity: 0.5,
-        },
-        summaryLabel: {
-            ...typography.bodySmall,
-            color: theme.colors.onSurfaceVariant,
-            marginBottom: spacing.xs,
-            textAlign: 'center',
-        },
-        summaryValue: {
-            ...typography.h2,
-            color: theme.colors.primary,
-            textAlign: 'center',
-            fontWeight: 'bold', // Added bold
-        },
-        chartCard: {
-            marginBottom: spacing.md,
-        },
-        budgetCard: {
-            marginBottom: spacing.md,
-        },
-        budgetItem: {
-            marginBottom: spacing.md,
-        },
-        budgetAmount: {
-            ...typography.caption,
-            color: theme.colors.onSurfaceVariant,
-            marginTop: spacing.xs,
-        },
-        budgetHeader: {
+        sectionHeader: {
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: spacing.xs,
+            marginBottom: spacing.md,
         },
-        budgetIconContainer: {
+        sectionTitle: {
+            fontSize: 18,
+            fontWeight: 'bold',
+            color: theme.colors.onSurface,
+        },
+        linkText: {
+            color: theme.colors.primary,
+            fontWeight: '600',
+        },
+        chartWrapper: {
+            backgroundColor: theme.colors.surface,
+            borderRadius: 16,
+            padding: spacing.sm,
+            // elevation: 2,
+            borderWidth: 1,
+            borderColor: theme.colors.outlineVariant,
+        },
+
+        // Card Styles - Improved Contrast
+        cardItem: {
+            width: 280, // Wider for better readability
+            borderRadius: 16,
+            padding: 20,
+            justifyContent: 'space-between',
+            gap: 16,
+        },
+        cardHeader: {
             flexDirection: 'row',
+            justifyContent: 'space-between',
             alignItems: 'center',
-            gap: spacing.sm,
         },
-        budgetLabel: {
-            ...typography.body,
+        cardName: {
+            fontSize: 16,
+            fontWeight: 'bold',
+        },
+        cardLast4: {
+            fontSize: 14,
+            color: theme.colors.onSurfaceVariant,
+            letterSpacing: 2,
+        },
+        cardFooter: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            marginBottom: 8,
+        },
+        cardLabel: {
+            fontSize: 12,
+            color: theme.colors.onSurfaceVariant,
+        },
+        cardValue: {
+            fontSize: 20,
+            fontWeight: 'bold',
+        },
+        cardLimit: {
+            fontSize: 12,
             color: theme.colors.onSurface,
             fontWeight: '500',
         },
-        budgetPercentage: {
-            ...typography.body,
+
+        // Goals Styles
+        goalItem: {
+            padding: 16,
+            borderRadius: 16,
+            marginBottom: spacing.sm,
+        },
+        goalHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginBottom: 12,
+        },
+        goalTitle: {
+            fontWeight: '600',
+            color: theme.colors.onSurface,
+            fontSize: 16,
+        },
+        goalPercentage: {
             fontWeight: 'bold',
+            color: theme.colors.primary,
         },
         emptyText: {
-            ...typography.body,
             color: theme.colors.onSurfaceVariant,
+            fontStyle: 'italic',
             textAlign: 'center',
-            marginVertical: spacing.md,
-        },
-        bottomPadding: {
-            height: 80,
+            marginVertical: 10,
         },
         fab: {
             position: 'absolute',
-            bottom: spacing.md,
-            right: spacing.md,
-            backgroundColor: theme.colors.primary,
+            bottom: spacing.lg,
+            right: spacing.lg,
+            borderRadius: 16,
         },
     });
