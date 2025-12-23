@@ -1,0 +1,11 @@
+{
+    "platforms": [
+        "android"
+    ],
+    "android": {
+        "package": "expo.modules.notificationreader",
+        "modules": [
+            "expo.modules.notificationreader.NotificationReaderModule"
+        ]
+    }
+}

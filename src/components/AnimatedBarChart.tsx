@@ -10,6 +10,7 @@ import { spacing, typography } from '../theme';
 import { useTheme } from 'react-native-paper';
 
 interface BarData {
+  id?: string;
   label: string;
   value: number;
   color: string;
@@ -36,7 +37,7 @@ export const AnimatedBarChart: React.FC<AnimatedBarChartProps> = ({ data, hideVa
 
         return (
           <AnimatedBar
-            key={item.label}
+            key={item.id || item.label}
             label={item.label}
             value={item.value}
             percentage={percentage}

@@ -1,0 +1,18 @@
+{
+    "name": "notification-reader",
+    "version": "1.0.0",
+    "description": "A local Expo module to read Android notifications",
+    "main": "index.ts",
+    "scripts": {
+        "build": "expo-module build",
+        "clean": "expo-module clean"
+    },
+    "keywords": [
+        "react-native",
+        "expo",
+        "notification",
+        "android"
+    ],
+    "author": "Antigravity",
+    "license": "MIT"
+}

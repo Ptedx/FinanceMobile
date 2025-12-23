@@ -44,6 +44,7 @@ export const DashboardScreen = ({ navigation }: any) => {
 
     const categoryData = Object.entries(insights.categoryBreakdown)
         .map(([category, amount]) => ({
+            id: category, // Use raw category as unique key
             category: category as any,
             label: getCategoryLabel(category as any),
             value: amount,

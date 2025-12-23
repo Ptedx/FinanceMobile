@@ -1,24 +1,28 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, SectionList, TouchableOpacity, Alert, Platform, Dimensions, ScrollView, FlatList } from 'react-native';
-import { Text, useTheme, Icon, SegmentedButtons, TextInput, IconButton, Button, Chip, Portal, Modal } from 'react-native-paper';
+import { View, StyleSheet, SectionList, TouchableOpacity, Alert, Platform, ScrollView } from 'react-native';
+import { Text, useTheme, Icon, SegmentedButtons, TextInput, IconButton, Button, Portal, Modal } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useFinanceStore } from '../store/financeStore';
-import { spacing, typography, AppTheme } from '../theme';
-import { format, parseISO, differenceInHours, startOfDay, endOfDay, isWithinInterval, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, getDay, getDate, differenceInDays, addDays, getMonth } from 'date-fns';
+import { spacing, AppTheme } from '../theme';
+import { format, parseISO, differenceInHours, startOfDay, endOfDay, isWithinInterval, addMonths, subMonths, startOfMonth, endOfMonth, isSameMonth, getDate, differenceInDays, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getCategoryIcon, getCategoryColor } from '../constants';
+import { getCategoryIcon } from '../constants';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { formatCurrency } from '../utils/formatters';
 
 export const TimelineScreen = () => {
     const theme = useTheme<AppTheme>();
     const navigation = useNavigation<any>();
-    const { expenses, incomes, updateExpense, updateIncome } = useFinanceStore();
+    const { expenses, incomes, loadExpenses, loadIncomes } = useFinanceStore();
+
+    // Refresh Logic
+    const [refreshing, setRefreshing] = useState(false);
+
+    // Filter State
     const [filter, setFilter] = useState<'all' | 'recurring'>('all');
 
     // Date Filters
     const [currentDate, setCurrentDate] = useState(new Date()); // Tracks "Visualized Month"
-    // Custom Filter State
     const [startDate, setStartDate] = useState<Date | undefined>(undefined);
     const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
@@ -31,15 +35,15 @@ export const TimelineScreen = () => {
         "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
     ];
-    const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i); // 5 years back, 4 forward
+    const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
 
     // UI Visuals
     const [showStartDatePicker, setShowStartDatePicker] = useState(false);
     const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [showFilterOptions, setShowFilterOptions] = useState(false); // Toggle for advanced filters
+    const [showFilterOptions, setShowFilterOptions] = useState(false);
 
-    // Handlers for Month Navigation (Clears custom filter)
+    // Handlers
     const handleMonthSelect = (monthIndex: number) => {
         const newDate = new Date(pickerYear, monthIndex, 1);
         setCurrentDate(newDate);
@@ -53,142 +57,28 @@ export const TimelineScreen = () => {
         setEndDate(undefined);
         setCurrentDate(subMonths(currentDate, 1));
     };
+
     const handleNextMonth = () => {
         setStartDate(undefined);
         setEndDate(undefined);
         setCurrentDate(addMonths(currentDate, 1));
     };
 
-    const processedData = useMemo(() => {
-        let allTransactions = [
-            ...expenses.map(e => ({ ...e, type: 'expense' as const })),
-            ...incomes.map(i => ({ ...i, type: 'income' as const })),
-        ];
-
-        // 1. Filter by Recurring Toggle
-        if (filter === 'recurring') {
-            allTransactions = allTransactions.filter(t => t.isRecurring);
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            const startDateStr = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+            const endDateStr = format(endOfMonth(currentDate), 'yyyy-MM-dd');
+            await Promise.all([
+                loadExpenses(startDateStr, endDateStr),
+                loadIncomes(startDateStr, endDateStr)
+            ]);
+        } catch (error) {
+            console.error("Failed to refresh", error);
+        } finally {
+            setRefreshing(false);
         }
-
-        // 2. Determine Effective Date Range for Chart/Filtering
-        const effectiveStart = startDate ? startOfDay(startDate) : startOfMonth(currentDate);
-        const effectiveEnd = endDate ? endOfDay(endDate) : endOfMonth(currentDate);
-
-        // 3. Filter Transactions by Date & Search
-        // Note: If looking at "Recurring" TAB, we usually still want to see the items for that period.
-
-        let filtered = allTransactions.filter(t => {
-            const tDate = parseISO(t.date);
-
-            // Search Query
-            if (searchQuery.trim()) {
-                const query = searchQuery.toLowerCase().trim();
-                const descriptionMatch = (t.description || '').toLowerCase().includes(query);
-                const categoryMatch = (t.category || '').toLowerCase().includes(query);
-                if (!descriptionMatch && !categoryMatch) return false;
-            }
-
-            // Date Range
-            return isWithinInterval(tDate, { start: effectiveStart, end: effectiveEnd });
-        });
-
-        filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-        // 4. Calculate Totals
-        const totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0);
-        const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0);
-
-        // 5. Group for SectionList
-        const sections = Object.entries(filtered.reduce((acc, transaction) => {
-            const date = parseISO(transaction.date);
-            const title = format(date, "dd 'de' MMMM, yyyy", { locale: ptBR });
-            if (!acc[title]) acc[title] = [];
-            acc[title].push(transaction);
-            return acc;
-        }, {} as Record<string, typeof filtered>)).map(([title, data]) => ({ title, data }));
-
-        // 6. Generate Adaptive Chart Data
-        const today = new Date();
-        const isCurrentMonthView = isSameMonth(currentDate, today) && !startDate && !endDate;
-
-        // If viewing current month, we only chart up to today (elapsed time)
-        // If custom range or past month, we chart the whole effective range
-        const chartEnd = isCurrentMonthView ? endOfDay(today) : effectiveEnd;
-        const daysDiff = differenceInDays(chartEnd, effectiveStart);
-
-        const chartData = [];
-
-        // Special Case: Single Day (e.g. Day 1, or today is the 1st) -> Show Hours
-        if (daysDiff === 0) {
-            const currentHour = isCurrentMonthView ? today.getHours() : 23;
-            // Group by 4-hour blocks or 3-hour blocks to fit ~6-8 bars
-            // 0-24h = 24 points. Too many.
-            // Let's do 3-hour chunks: 0-3, 3-6, ..., 21-24. (8 chunks)
-
-            const bucketSizeHours = 3;
-            for (let i = 0; i < 24; i += bucketSizeHours) { // 0, 3, 6...
-                if (i > currentHour && isCurrentMonthView) break; // Don't show future hours
-
-                const label = `${i}h`;
-                const bucketTransactions = filtered.filter(t => {
-                    const h = parseISO(t.date).getHours();
-                    const d = parseISO(t.date);
-                    return isSameMonth(d, effectiveStart) && getDate(d) === getDate(effectiveStart) && h >= i && h < i + bucketSizeHours;
-                });
-
-                const income = bucketTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0);
-                const expense = bucketTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0);
-
-                chartData.push({ label, income, expense });
-            }
-
-        } else {
-            // Standard Daily/Grouped Logic
-            const totalDays = daysDiff + 1;
-            const targetBars = 7;
-            const bucketSize = Math.max(1, Math.ceil(totalDays / targetBars));
-
-            const numBuckets = Math.ceil(totalDays / bucketSize);
-
-            for (let i = 0; i < numBuckets; i++) {
-                const bucketStart = addDays(effectiveStart, i * bucketSize);
-                const bucketEnd = endOfDay(addDays(bucketStart, bucketSize - 1));
-
-                // Clamp visual bucket end
-                const actualBucketEnd = bucketEnd > chartEnd ? chartEnd : bucketEnd;
-
-                // Stop if start is beyond end
-                if (bucketStart > chartEnd) break;
-
-                // Label
-                let label = "";
-                if (bucketSize === 1) {
-                    label = format(bucketStart, 'dd');
-                } else {
-                    label = format(bucketStart, 'dd'); // Short label (Start Day)
-                    // label = `${format(bucketStart, 'dd')}-${format(actualBucketEnd, 'dd')}`; // Range label (optional, might get crowded)
-                }
-
-                const bucketTransactions = filtered.filter(t => {
-                    const tDate = parseISO(t.date);
-                    return tDate >= bucketStart && tDate <= actualBucketEnd;
-                });
-
-                const income = bucketTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0);
-                const expense = bucketTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0);
-
-                chartData.push({ label, income, expense });
-            }
-        }
-
-        // Find max for scaling
-        const maxVal = Math.max(...chartData.map(d => Math.max(d.income, d.expense)), 100);
-
-        const isCustomPeriod = !!(startDate || endDate);
-
-        return { sections, totalIncome, totalExpense, chartData, maxVal, isCustomPeriod, effectiveStart, effectiveEnd };
-
-    }, [expenses, incomes, filter, startDate, endDate, searchQuery, currentDate]);
+    };
 
     const onStartDateChange = (event: any, selectedDate?: Date) => {
         setShowStartDatePicker(Platform.OS === 'ios');
@@ -219,191 +109,114 @@ export const TimelineScreen = () => {
         else navigation.navigate('AddIncome', { income: item });
     };
 
-    const renderHeader = () => (
-        <View>
-            {/* Dynamic Title / Date Selector */}
-            <View style={styles.headerControls}>
-                <IconButton icon="chevron-left" onPress={handlePreviousMonth} size={24} />
+    // Helper for compact currency
+    const formatCompact = (value: number) => {
+        if (value === 0) return '';
+        if (value >= 1000000) return `R$${(value / 1000000).toFixed(1)}M`;
+        if (value >= 1000) return `R$${(value / 1000).toFixed(0)}k`;
+        return `R$${value.toFixed(0)}`;
+    };
 
-                <View style={{ alignItems: 'center', flexDirection: 'column' }}>
-                    <TouchableOpacity onPress={() => { setPickerYear(currentDate.getFullYear()); setShowMonthPicker(true); }}>
-                        <Text style={styles.headerTitle}>
-                            {processedData.isCustomPeriod ? 'Período Personalizado' : format(currentDate, 'MMMM yyyy', { locale: ptBR })}
-                        </Text>
-                    </TouchableOpacity>
+    // Data Processing
+    const processedData = useMemo(() => {
+        let allTransactions = [
+            ...expenses.map(e => ({ ...e, type: 'expense' as const })),
+            ...incomes.map(i => ({ ...i, type: 'income' as const })),
+        ];
 
-                    {processedData.isCustomPeriod && (
-                        <Text style={styles.headerSubtitle}>
-                            {format(processedData.effectiveStart, 'dd/MM')} - {format(processedData.effectiveEnd, 'dd/MM')}
-                        </Text>
-                    )}
+        if (filter === 'recurring') {
+            allTransactions = allTransactions.filter(t => t.isRecurring);
+        }
 
-                    <TouchableOpacity onPress={() => setShowFilterOptions(!showFilterOptions)} style={{ padding: 4 }}>
-                        <Icon source={showFilterOptions ? "chevron-up" : "chevron-down"} size={20} color={theme.colors.onSurfaceVariant} />
-                    </TouchableOpacity>
-                </View>
+        const effectiveStart = startDate ? startOfDay(startDate) : startOfMonth(currentDate);
+        const effectiveEnd = endDate ? endOfDay(endDate) : endOfMonth(currentDate);
 
-                <IconButton icon="chevron-right" onPress={handleNextMonth} size={24} />
-            </View>
+        let filtered = allTransactions.filter(t => {
+            const tDate = parseISO(t.date);
 
-            {/* Collapsible Filters */}
-            {showFilterOptions && (
-                <View style={styles.filterOptionsContainer}>
-                    <Text style={styles.filterLabel}>Filtrar por data:</Text>
-                    <View style={styles.dateRow}>
-                        <TouchableOpacity onPress={() => setShowStartDatePicker(true)} style={styles.dateButton}>
-                            <Icon source="calendar" size={18} color={theme.colors.primary} />
-                            <Text style={styles.dateButtonText}>{formatDate(startDate)}</Text>
-                        </TouchableOpacity>
-                        <Text>-</Text>
-                        <TouchableOpacity onPress={() => setShowEndDatePicker(true)} style={styles.dateButton}>
-                            <Icon source="calendar" size={18} color={theme.colors.primary} />
-                            <Text style={styles.dateButtonText}>{formatDate(endDate)}</Text>
-                        </TouchableOpacity>
-                        {(startDate || endDate) && (
-                            <IconButton icon="close-circle" size={20} onPress={() => { setStartDate(undefined); setEndDate(undefined); }} />
-                        )}
-                    </View>
-                </View>
-            )}
+            if (searchQuery.trim()) {
+                const query = searchQuery.toLowerCase().trim();
+                const descriptionMatch = (t.description || '').toLowerCase().includes(query);
+                const categoryMatch = (t.category || '').toLowerCase().includes(query);
+                if (!descriptionMatch && !categoryMatch) return false;
+            }
 
-            {/* Month Picker Modal */}
-            <Portal>
-                <Modal visible={showMonthPicker} onDismiss={() => setShowMonthPicker(false)} contentContainerStyle={styles.modalContainer}>
-                    <View style={styles.pickerContent}>
-                        <Text style={styles.pickerTitle}>Selecionar Período</Text>
+            return isWithinInterval(tDate, { start: effectiveStart, end: effectiveEnd });
+        });
 
-                        <View style={styles.pickerRow}>
-                            {/* Years Column */}
-                            <View style={styles.pickerColumn}>
-                                <Text style={styles.columnHeader}>Ano</Text>
-                                <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
-                                    {YEARS.map(year => (
-                                        <TouchableOpacity
-                                            key={year}
-                                            onPress={() => setPickerYear(year)}
-                                            style={[styles.pickerItem, pickerYear === year && styles.pickerItemSelected]}
-                                        >
-                                            <Text style={[styles.pickerItemText, pickerYear === year && styles.pickerItemTextSelected]}>
-                                                {year}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                            </View>
+        filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-                            {/* Divider */}
-                            <View style={styles.pickerDivider} />
+        const totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0);
+        const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0);
 
-                            {/* Months Column */}
-                            <View style={styles.pickerColumn}>
-                                <Text style={styles.columnHeader}>Mês</Text>
-                                <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
-                                    {MONTHS.map((month, index) => (
-                                        <TouchableOpacity
-                                            key={month}
-                                            onPress={() => handleMonthSelect(index)} // Selects and Closes
-                                            style={[styles.pickerItem, (currentDate.getMonth() === index && currentDate.getFullYear() === pickerYear) && styles.pickerItemSelected]}
-                                        >
-                                            <Text style={[
-                                                styles.pickerItemText,
-                                                (currentDate.getMonth() === index && currentDate.getFullYear() === pickerYear) && styles.pickerItemTextSelected
-                                            ]}>
-                                                {month}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                            </View>
-                        </View>
+        const sections = Object.entries(filtered.reduce((acc, transaction) => {
+            const date = parseISO(transaction.date);
+            const title = format(date, "dd 'de' MMMM, yyyy", { locale: ptBR });
+            if (!acc[title]) acc[title] = [];
+            acc[title].push(transaction);
+            return acc;
+        }, {} as Record<string, typeof filtered>)).map(([title, data]) => ({ title, data }));
 
-                        <Button mode="text" onPress={() => setShowMonthPicker(false)} style={{ marginTop: 16 }}>
-                            Cancelar
-                        </Button>
-                    </View>
-                </Modal>
-            </Portal>
+        // Adaptive Chart Logic
+        const today = new Date();
+        const isCurrentMonthView = isSameMonth(currentDate, today) && !startDate && !endDate;
+        const chartEnd = isCurrentMonthView ? endOfDay(today) : effectiveEnd;
+        const daysDiff = differenceInDays(chartEnd, effectiveStart);
+        const chartData = [];
 
-            {/* Summary Cards */}
-            <View style={styles.summaryContainer}>
-                <View style={[styles.summaryCard, { backgroundColor: '#4361EE' }]}>
-                    <View style={styles.summaryIconBg}>
-                        <Icon source="arrow-up" color="#4361EE" size={20} />
-                    </View>
-                    <View>
-                        <Text style={styles.summaryLabel}>Receitas</Text>
-                        <Text style={styles.summaryValue}>{formatCurrency(processedData.totalIncome)}</Text>
-                    </View>
-                </View>
+        if (daysDiff === 0) {
+            const currentHour = isCurrentMonthView ? today.getHours() : 23;
+            const bucketSizeHours = 3;
+            for (let i = 0; i < 24; i += bucketSizeHours) {
+                if (i > currentHour && isCurrentMonthView) break;
+                const label = `${i}h`;
+                const bucketTransactions = filtered.filter(t => {
+                    const h = parseISO(t.date).getHours();
+                    const d = parseISO(t.date);
+                    return isWithinInterval(d, { start: effectiveStart, end: effectiveEnd }) && getDate(d) === getDate(effectiveStart) && h >= i && h < i + bucketSizeHours;
+                });
+                const income = bucketTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0);
+                const expense = bucketTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0);
+                chartData.push({ label, income, expense });
+            }
+        } else {
+            const totalDays = daysDiff + 1;
+            const targetBars = 7;
+            const bucketSize = Math.max(1, Math.ceil(totalDays / targetBars));
+            const numBuckets = Math.ceil(totalDays / bucketSize);
 
-                <View style={[styles.summaryCard, { backgroundColor: '#FFB703' }]}>
-                    <View style={[styles.summaryIconBg, { backgroundColor: 'rgba(255,255,255,0.9)' }]}>
-                        <Icon source="arrow-down" color="#FFB703" size={20} />
-                    </View>
-                    <View>
-                        <Text style={[styles.summaryLabel, { color: 'black' }]}>Despesas</Text>
-                        <Text style={[styles.summaryValue, { color: 'black' }]}>{formatCurrency(processedData.totalExpense)}</Text>
-                    </View>
-                </View>
-            </View>
+            for (let i = 0; i < numBuckets; i++) {
+                const bucketStart = addDays(effectiveStart, i * bucketSize);
+                const bucketEnd = endOfDay(addDays(bucketStart, bucketSize - 1));
+                const actualBucketEnd = bucketEnd > chartEnd ? chartEnd : bucketEnd;
+                if (bucketStart > chartEnd) break;
 
-            {/* Adaptive Chart */}
-            <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>Fluxo do Período</Text>
-                {processedData.chartData.every(d => d.income === 0 && d.expense === 0) ? (
-                    <Text style={{ textAlign: 'center', color: theme.colors.outline, margin: 20 }}>Sem dados para o gráfico</Text>
-                ) : (
-                    <View style={styles.chartRow}>
-                        {processedData.chartData.map((data, index) => {
-                            const incomeHeight = (data.income / processedData.maxVal) * 100;
-                            const expenseHeight = (data.expense / processedData.maxVal) * 100;
+                let label = "";
+                if (bucketSize === 1) {
+                    label = format(bucketStart, 'dd');
+                } else {
+                    label = format(bucketStart, 'dd');
+                }
 
-                            return (
-                                <View key={index} style={styles.chartBarGroup}>
-                                    <View style={styles.barsArea}>
-                                        <View style={[styles.bar, { height: `${Math.max(incomeHeight, 2)}%`, backgroundColor: '#4361EE' }]} />
-                                        <View style={[styles.bar, { height: `${Math.max(expenseHeight, 2)}%`, backgroundColor: '#FFB703', marginLeft: 4 }]} />
-                                    </View>
-                                    <Text style={styles.barLabel}>{data.label}</Text>
-                                </View>
-                            );
-                        })}
-                    </View>
-                )}
-            </View>
+                const bucketTransactions = filtered.filter(t => {
+                    const tDate = parseISO(t.date);
+                    return tDate >= bucketStart && tDate <= actualBucketEnd;
+                });
 
-            {/* Filters & Search - Persistent */}
-            <View style={styles.filterSection}>
-                <SegmentedButtons
-                    value={filter}
-                    onValueChange={(value: string) => setFilter(value as 'all' | 'recurring')}
-                    buttons={[
-                        { value: 'all', label: 'Todos' },
-                        { value: 'recurring', label: 'Recorrentes' },
-                    ]}
-                    style={{ marginBottom: spacing.sm }}
-                    theme={{ colors: { secondaryContainer: theme.colors.primaryContainer, onSecondaryContainer: theme.colors.onPrimaryContainer } }}
-                />
-                <TextInput
-                    mode="outlined"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    placeholder="Buscar transações..."
-                    style={styles.searchInput}
-                    right={searchQuery ? <TextInput.Icon icon="close" onPress={() => setSearchQuery('')} /> : <TextInput.Icon icon="magnify" />}
-                    dense
-                    theme={{ roundness: 12 }}
-                />
-            </View>
+                const income = bucketTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0);
+                const expense = bucketTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0);
+                chartData.push({ label, income, expense });
+            }
+        }
 
-            {showStartDatePicker && <DateTimePicker value={startDate || new Date()} mode="date" onChange={onStartDateChange} />}
-            {showEndDatePicker && <DateTimePicker value={endDate || new Date()} mode="date" onChange={onEndDateChange} />}
-        </View>
-    );
+        const maxVal = Math.max(...chartData.map(d => Math.max(d.income, d.expense)), 100);
+        const isCustomPeriod = !!(startDate || endDate);
+
+        return { sections, totalIncome, totalExpense, chartData, maxVal, isCustomPeriod, effectiveStart, effectiveEnd };
+    }, [expenses, incomes, filter, startDate, endDate, searchQuery, currentDate]);
 
     const renderItem = ({ item }: { item: any }) => {
         const isExpense = item.type === 'expense';
-        // Mockup 2 style: rounded square container for icon
         const iconColor = isExpense ? '#FF5252' : '#4CAF50';
         const bgIconColor = isExpense ? '#FFEBEE' : '#E8F5E9';
 
@@ -434,19 +247,25 @@ export const TimelineScreen = () => {
 
     const styles = createStyles(theme);
 
-    // Helper for compact currency
-    const formatCompact = (value: number) => {
-        if (value === 0) return '';
-        if (value >= 1000000) return `R$${(value / 1000000).toFixed(1)}M`;
-        if (value >= 1000) return `R$${(value / 1000).toFixed(0)}k`;
-        return `R$${value.toFixed(0)}`;
-    };
-
     return (
         <View style={styles.container}>
             <SectionList
                 sections={processedData.sections}
                 renderItem={renderItem}
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                keyExtractor={item => item.id}
+                stickySectionHeadersEnabled={false}
+                contentContainerStyle={styles.listContent}
+                renderSectionHeader={({ section: { title } }) => (
+                    <Text style={styles.sectionHeader}>{title.toUpperCase()}</Text>
+                )}
+                ListEmptyComponent={
+                    <View style={styles.emptyState}>
+                        <Icon source="file-document-outline" size={64} color={theme.colors.outline} />
+                        <Text style={styles.emptyText}>Nenhuma transação neste período.</Text>
+                    </View>
+                }
                 ListHeaderComponent={() => (
                     <View>
                         {/* Header Controls */}
@@ -495,7 +314,7 @@ export const TimelineScreen = () => {
                             </View>
                         )}
 
-                        {/* Portal for Month Picker */}
+                        {/* Month Picker Modal */}
                         <Portal>
                             <Modal visible={showMonthPicker} onDismiss={() => setShowMonthPicker(false)} contentContainerStyle={styles.modalContainer}>
                                 <View style={styles.pickerContent}>
@@ -504,37 +323,29 @@ export const TimelineScreen = () => {
                                     <View style={styles.pickerRow}>
                                         <View style={styles.pickerColumn}>
                                             <Text style={styles.columnHeader}>Ano</Text>
-                                            <FlatList
-                                                data={YEARS}
-                                                keyExtractor={(item) => item.toString()}
-                                                showsVerticalScrollIndicator={false}
-                                                getItemLayout={(data, index) => ({ length: 48, offset: 48 * index, index })}
-                                                initialScrollIndex={YEARS.indexOf(pickerYear)}
-                                                renderItem={({ item }) => (
+                                            <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
+                                                {YEARS.map(year => (
                                                     <TouchableOpacity
-                                                        onPress={() => setPickerYear(item)}
-                                                        style={[styles.pickerItem, pickerYear === item && styles.pickerItemSelected]}
+                                                        key={year}
+                                                        onPress={() => setPickerYear(year)}
+                                                        style={[styles.pickerItem, pickerYear === year && styles.pickerItemSelected]}
                                                     >
-                                                        <Text style={[styles.pickerItemText, pickerYear === item && styles.pickerItemTextSelected]}>
-                                                            {item}
+                                                        <Text style={[styles.pickerItemText, pickerYear === year && styles.pickerItemTextSelected]}>
+                                                            {year}
                                                         </Text>
                                                     </TouchableOpacity>
-                                                )}
-                                            />
+                                                ))}
+                                            </ScrollView>
                                         </View>
 
                                         <View style={styles.pickerDivider} />
 
                                         <View style={styles.pickerColumn}>
                                             <Text style={styles.columnHeader}>Mês</Text>
-                                            <FlatList
-                                                data={MONTHS}
-                                                keyExtractor={(item) => item}
-                                                showsVerticalScrollIndicator={false}
-                                                getItemLayout={(data, index) => ({ length: 48, offset: 48 * index, index })}
-                                                initialScrollIndex={currentDate.getMonth()}
-                                                renderItem={({ item, index }) => (
+                                            <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
+                                                {MONTHS.map((month, index) => (
                                                     <TouchableOpacity
+                                                        key={month}
                                                         onPress={() => handleMonthSelect(index)}
                                                         style={[styles.pickerItem, (currentDate.getMonth() === index && currentDate.getFullYear() === pickerYear) && styles.pickerItemSelected]}
                                                     >
@@ -542,11 +353,11 @@ export const TimelineScreen = () => {
                                                             styles.pickerItemText,
                                                             (currentDate.getMonth() === index && currentDate.getFullYear() === pickerYear) && styles.pickerItemTextSelected
                                                         ]}>
-                                                            {item}
+                                                            {month}
                                                         </Text>
                                                     </TouchableOpacity>
-                                                )}
-                                            />
+                                                ))}
+                                            </ScrollView>
                                         </View>
                                     </View>
 
@@ -559,9 +370,9 @@ export const TimelineScreen = () => {
 
                         {/* Summary Cards */}
                         <View style={styles.summaryContainer}>
-                            <View style={[styles.summaryCard, { backgroundColor: theme.dark ? '#004D33' : theme.colors.primary }]}>
+                            <View style={[styles.summaryCard, { backgroundColor: '#4361EE' }]}>
                                 <View style={styles.summaryIconBg}>
-                                    <Icon source="arrow-up" color={theme.dark ? '#004D33' : theme.colors.primary} size={20} />
+                                    <Icon source="arrow-up" color="#4361EE" size={20} />
                                 </View>
                                 <View>
                                     <Text style={styles.summaryLabel}>Receitas</Text>
@@ -569,13 +380,13 @@ export const TimelineScreen = () => {
                                 </View>
                             </View>
 
-                            <View style={[styles.summaryCard, { backgroundColor: theme.dark ? '#8B2E2E' : '#FF6B6B' }]}>
-                                <View style={styles.summaryIconBg}>
-                                    <Icon source="arrow-down" color={theme.dark ? '#8B2E2E' : '#FF6B6B'} size={20} />
+                            <View style={[styles.summaryCard, { backgroundColor: '#FFB703' }]}>
+                                <View style={[styles.summaryIconBg, { backgroundColor: 'rgba(255,255,255,0.9)' }]}>
+                                    <Icon source="arrow-down" color="#FFB703" size={20} />
                                 </View>
                                 <View>
-                                    <Text style={[styles.summaryLabel, { color: 'white' }]}>Despesas</Text>
-                                    <Text style={[styles.summaryValue, { color: 'white' }]}>{formatCurrency(processedData.totalExpense)}</Text>
+                                    <Text style={[styles.summaryLabel, { color: 'black' }]}>Despesas</Text>
+                                    <Text style={[styles.summaryValue, { color: 'black' }]}>{formatCurrency(processedData.totalExpense)}</Text>
                                 </View>
                             </View>
                         </View>
@@ -594,20 +405,18 @@ export const TimelineScreen = () => {
                                         return (
                                             <View key={index} style={styles.chartBarGroup}>
                                                 <View style={styles.barsArea}>
-                                                    {/* Income Bar & Label */}
                                                     <View style={{ height: '100%', justifyContent: 'flex-end', alignItems: 'center' }}>
                                                         {data.income > 0 && (
                                                             <Text style={styles.barValueLabel}>{formatCompact(data.income)}</Text>
                                                         )}
-                                                        <View style={[styles.bar, { height: `${Math.max(incomeHeight, 2)}%`, backgroundColor: theme.dark ? '#004D33' : theme.colors.primary }]} />
+                                                        <View style={[styles.bar, { height: `${Math.max(incomeHeight, 2)}%`, backgroundColor: theme.dark ? '#004D33' : '#4361EE' }]} />
                                                     </View>
 
-                                                    {/* Expense Bar & Label */}
                                                     <View style={{ height: '100%', justifyContent: 'flex-end', alignItems: 'center', marginLeft: 4 }}>
                                                         {data.expense > 0 && (
                                                             <Text style={styles.barValueLabel}>{formatCompact(data.expense)}</Text>
                                                         )}
-                                                        <View style={[styles.bar, { height: `${Math.max(expenseHeight, 2)}%`, backgroundColor: theme.dark ? '#8B2E2E' : '#FF6B6B' }]} />
+                                                        <View style={[styles.bar, { height: `${Math.max(expenseHeight, 2)}%`, backgroundColor: theme.dark ? '#8B2E2E' : '#FFB703' }]} />
                                                     </View>
                                                 </View>
                                                 <Text style={styles.barLabel}>{data.label}</Text>
@@ -646,18 +455,6 @@ export const TimelineScreen = () => {
                         {showEndDatePicker && <DateTimePicker value={endDate || new Date()} mode="date" onChange={onEndDateChange} />}
                     </View>
                 )}
-                renderSectionHeader={({ section: { title } }) => (
-                    <Text style={styles.sectionHeader}>{title.toUpperCase()}</Text>
-                )}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.listContent}
-                stickySectionHeadersEnabled={false}
-                ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                        <Icon source="file-document-outline" size={64} color={theme.colors.outline} />
-                        <Text style={styles.emptyText}>Nenhuma transação neste período.</Text>
-                    </View>
-                }
             />
         </View>
     );
@@ -667,6 +464,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: theme.colors.background,
+        paddingTop: Platform.OS === 'android' ? 30 : 0,
     },
     listContent: {
         paddingBottom: 80,
@@ -682,6 +480,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         textTransform: 'capitalize',
+        color: theme.colors.onSurface,
     },
     headerSubtitle: {
         fontSize: 12,
@@ -717,6 +516,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
     },
     dateButtonText: {
         fontSize: 14,
+        color: theme.colors.onSurface,
     },
     summaryContainer: {
         flexDirection: 'row',
@@ -765,6 +565,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         marginBottom: spacing.md,
+        color: theme.colors.onSurface,
     },
     chartRow: {
         flexDirection: 'row',
@@ -776,7 +577,7 @@ const createStyles = (theme: AppTheme) => StyleSheet.create({
         alignItems: 'center',
         height: '100%',
         justifyContent: 'flex-end',
-        flex: 1, // distribute evenly
+        flex: 1,
     },
     barsArea: {
         flexDirection: 'row',

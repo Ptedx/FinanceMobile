@@ -8,9 +8,15 @@ import { useThemeStore } from './src/hooks/useTheme';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+import { notificationService } from './src/services/NotificationService';
+
 export default function App() {
   const initialize = useFinanceStore(state => state.initialize);
   const { theme, isDarkMode } = useThemeStore();
+
+  useEffect(() => {
+    notificationService.init();
+  }, []);
 
   // Initialization is now handled in AppNavigator when authenticated
 

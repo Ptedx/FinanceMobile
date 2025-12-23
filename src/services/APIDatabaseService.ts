@@ -191,43 +191,25 @@ export class APIDatabaseService implements IDatabaseService {
     }
 
     async cancelInvoicePayment(paymentId: string): Promise<void> {
-        // We need to know the cardId to construct the URL if we follow the REST pattern strictly,
-        // but my backend implementation for DELETE was:
-        // app.delete('/credit-cards/:id/invoice-payment', ... const { paymentId } = req.body ...)
-        // So I need the cardId here too?
-        // Actually, the backend route I defined is `/credit-cards/:id/invoice-payment`.
-        // So I need cardId.
-        // Let's update the interface to include cardId for cancellation, or change the backend route.
-        // Changing the backend route to `/invoice-payments/:id` would be cleaner but I already wrote the backend code.
-        // I'll update the interface to require cardId.
-        // Wait, I can't update the interface in this tool call because I already sent it.
-        // I'll just assume I can pass cardId.
-        // Ah, I missed adding cardId to cancelInvoicePayment in IDatabaseService.
-        // I will fix IDatabaseService in the next step if needed.
-        // For now, I'll implement it assuming I have cardId, or I'll just pass a dummy ID if the backend doesn't actually use it for the delete logic (it uses paymentId from body).
-        // The backend uses `req.params.id` for `creditCardId` in the `findFirst` case, but for `delete` with `paymentId`, it uses `paymentId`.
-        // `await prisma.invoicePayment.delete({ where: { id: paymentId, userId: req.user!.userId } });`
-        // It doesn't use `req.params.id` in the `if (paymentId)` block.
-        // So I can pass any string for `:id`.
-        return fetchWithAuth(`/credit-cards/invoice-payment/invoice-payment`, { // This looks wrong.
+        // Updated to use the correct route
+        return fetchWithAuth(`/invoice-payments/${paymentId}`, {
             method: 'DELETE',
-            body: JSON.stringify({ paymentId }),
         });
     }
 
-    // Correction: The route is `/credit-cards/:id/invoice-payment`.
-    // I should probably pass the cardId.
-    // Let's correct the interface first.
-    // I'll return the implementation here assuming I'll fix the interface.
-    // But wait, I can't implement it if the signature doesn't match.
-    // I'll implement `getInvoicePayments` first and `payInvoice`.
-    // I'll skip `cancelInvoicePayment` implementation here and fix the interface first.
-
     async getInvoicePayments(cardId: string): Promise<any[]> {
         return fetchWithAuth(`/credit-cards/${cardId}/invoice-payments`);
+    }
+
+    async categorizeNotification(text: string, packageName: string, timestamp: number): Promise<any> {
+        return fetchWithAuth('/ai/categorize', {
+            method: 'POST',
+            body: JSON.stringify({ rawText: text, packageName, timestamp }),
+        });
     }
 
     async generateIntegrationKey(): Promise<{ key: string, expiresAt: string }> {
         return fetchWithAuth('/integrations/generate-key', { method: 'POST' });
     }
 }
+

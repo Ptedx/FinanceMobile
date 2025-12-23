@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { Text, useTheme, FAB, ProgressBar } from 'react-native-paper';
 import { useFinanceStore } from '../store/financeStore';
 import { spacing, typography } from '../theme';
@@ -10,9 +10,21 @@ import { formatCurrency } from '../utils/formatters';
 
 export const GoalsScreen = () => {
     const theme = useTheme();
-    const { goals, addGoal, updateGoal, deleteGoal } = useFinanceStore();
+    const { goals, addGoal, updateGoal, deleteGoal, loadGoals } = useFinanceStore();
     const [sheetVisible, setSheetVisible] = useState(false);
     const [selectedGoal, setSelectedGoal] = useState<Goal | undefined>(undefined);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await loadGoals();
+        } catch (error) {
+            console.error("Failed to refresh goals", error);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     const handleOpenAdd = () => {
         setSelectedGoal(undefined);
@@ -42,7 +54,13 @@ export const GoalsScreen = () => {
 
     return (
         <View style={styles.container}>
-            <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+            <ScrollView
+                style={styles.content}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+                }
+            >
                 <Text style={styles.headerTitle}>Minhas Metas</Text>
 
                 {goals.length === 0 ? (

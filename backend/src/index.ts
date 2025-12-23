@@ -14,6 +14,10 @@ app.use(cors());
 app.use(express.json());
 
 // Auth Routes
+import { handleNotificationWebhook } from './controllers/NotificationController';
+
+app.post('/ai/categorize', authMiddleware, handleNotificationWebhook);
+
 interface RegisterRequest {
     name: string;
     email: string;
