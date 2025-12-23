@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform, RefreshControl } from 'react-native';
 import { IconButton, FAB, useTheme, SegmentedButtons, Icon, Button, Portal, Modal } from 'react-native-paper';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
@@ -12,7 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import { useFinanceEngine } from '../hooks/useFinanceEngine';
 import { spacing, typography } from '../theme';
 import { getCategoryColor, getCategoryLabel, getCategoryIcon, INCOME_CATEGORIES } from '../constants';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getInvoiceDates, isExpenseInInvoice } from '../utils/creditCardUtils';
 import { formatCurrency } from '../utils/formatters';
@@ -28,13 +28,40 @@ const { width } = Dimensions.get('window');
 export const DashboardScreen = ({ navigation }: any) => {
     const theme = useTheme();
     const { user } = useAuthStore();
-    const { alerts, markAlertAsRead, goals, isLoading, error, retry, isValuesVisible, toggleValuesVisibility, creditCards, expenses, incomes, invoicePayments } = useFinanceStore();
+    const {
+        alerts, markAlertAsRead, goals, isLoading, error, retry, isValuesVisible, toggleValuesVisibility,
+        creditCards, expenses, incomes, invoicePayments,
+        loadExpenses, loadIncomes, loadBudgets, loadGoals, loadAlerts, fetchCreditCards
+    } = useFinanceStore();
     const [selectedPeriod, setSelectedPeriod] = useState<'1D' | '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL'>('7D');
+    const [refreshing, setRefreshing] = useState(false);
 
     const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
     const [sheetVisible, setSheetVisible] = useState(false);
 
     const { dashboardData, getSpendingInsights, getNetWorthHistory } = useFinanceEngine();
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            const currentMonth = format(new Date(), 'yyyy-MM');
+            const startDate = format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd');
+            const endDate = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+
+            await Promise.all([
+                loadExpenses(startDate, endDate),
+                loadIncomes(startDate, endDate),
+                loadBudgets(currentMonth),
+                loadGoals(),
+                loadAlerts(true),
+                fetchCreditCards(),
+            ]);
+        } catch (error) {
+            console.error("Failed to refresh dashboard", error);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     if (isLoading) return <LoadingScreen />;
     if (error) return <ErrorRetryScreen error={error} onRetry={retry} />;
@@ -133,6 +160,9 @@ export const DashboardScreen = ({ navigation }: any) => {
             {/* White Sheet Content 'Pulling Up' */}
             <View style={styles.contentSheet}>
                 <ScrollView
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+                    }
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
                 >

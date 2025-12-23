@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
 import { Text, useTheme, FAB, ProgressBar } from 'react-native-paper';
 import { useFinanceStore } from '../store/financeStore';
 import { spacing, typography } from '../theme';
@@ -123,6 +123,7 @@ const createStyles = (theme: any) =>
         container: {
             flex: 1,
             backgroundColor: theme.colors.background,
+            paddingTop: Platform.OS === 'android' ? 30 : 0,
         },
         content: {
             flex: 1,

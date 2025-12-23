@@ -10,6 +10,12 @@ interface FinanceState {
   goals: Goal[];
   alerts: Alert[];
   invoicePayments: InvoicePayment[];
+  financialSummary: {
+    availableBalance: number;
+    netWorth: number;
+    monthlyIncome: number;
+    monthlyExpenses: number;
+  } | null;
 
   creditCards: CreditCard[];
   isLoading: boolean;
@@ -46,6 +52,8 @@ interface FinanceState {
   loadAlerts: (unreadOnly?: boolean) => Promise<void>;
   markAlertAsRead: (id: string) => Promise<void>;
 
+  loadFinancialSummary: () => Promise<void>;
+
   fetchCreditCards: () => Promise<void>;
   addCreditCard: (card: any) => Promise<void>;
   updateCreditCard: (id: string, card: any) => Promise<void>;
@@ -69,6 +77,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   alerts: [],
   creditCards: [],
   invoicePayments: [],
+  financialSummary: null,
   isLoading: false,
   error: null,
   isInitialized: false,
@@ -95,6 +104,10 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         get().loadGoals(),
         get().loadAlerts(true),
         get().fetchCreditCards(),
+        get().loadGoals(),
+        get().loadAlerts(true),
+        get().fetchCreditCards(),
+        get().loadFinancialSummary(),
       ]);
 
       // Load invoice payments for all cards
@@ -136,6 +149,15 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   loadExpenses: async (startDate, endDate) => {
     const expenses = await db.getExpenses(startDate, endDate);
     set({ expenses });
+  },
+
+  loadFinancialSummary: async () => {
+    try {
+        const summary = await db.getFinanceSummary();
+        set({ financialSummary: summary });
+    } catch (e) {
+        console.error("Failed to load financial summary", e);
+    }
   },
 
   deleteExpense: async (id) => {

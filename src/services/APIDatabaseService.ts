@@ -211,5 +211,9 @@ export class APIDatabaseService implements IDatabaseService {
     async generateIntegrationKey(): Promise<{ key: string, expiresAt: string }> {
         return fetchWithAuth('/integrations/generate-key', { method: 'POST' });
     }
+
+    async getFinanceSummary(): Promise<{ availableBalance: number; netWorth: number; monthlyIncome: number; monthlyExpenses: number }> {
+        return fetchWithAuth('/finance/summary');
+    }
 }
 

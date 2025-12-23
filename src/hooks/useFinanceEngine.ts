@@ -1,40 +1,31 @@
 import { useMemo } from 'react';
 import { useFinanceStore } from '../store/financeStore';
-import { startOfMonth, endOfMonth, addMonths, differenceInDays, format } from 'date-fns';
+import { startOfMonth, endOfMonth, addMonths, differenceInDays, format, subMonths } from 'date-fns';
 import { DashboardData, Goal } from '../types';
 
 export const useFinanceEngine = () => {
-  const { expenses, incomes, budgets, goals, invoicePayments, getBudgetProgress, getMonthlyTotal, getMonthlyIncome } = useFinanceStore();
+  const { expenses, incomes, budgets, goals, invoicePayments, getBudgetProgress, getMonthlyTotal, getMonthlyIncome, financialSummary } = useFinanceStore();
 
   const dashboardData: DashboardData = useMemo(() => {
+    // Keep these as "Current Month" stats for the specific UI displays
     const monthlyTotal = getMonthlyTotal();
     const monthlyIncome = getMonthlyIncome();
     const budgetProgress = getBudgetProgress();
 
-    const totalBudget = budgets.reduce((sum, b) => sum + b.limitAmount, 0);
+    // Use fetched summary for accurate All-Time balance
+    const availableBalance = financialSummary?.availableBalance ?? 0;
+    const netWorth = financialSummary?.netWorth ?? 0;
 
-    const debitExpenses = expenses.filter(e => !e.creditCardId).reduce((sum, e) => sum + e.value, 0);
-    const creditExpenses = expenses.filter(e => !!e.creditCardId).reduce((sum, e) => sum + e.value, 0);
-
-    // Calculate total invoice payments made in the current month
+    // Only for "Monthly Flow" UI (Invoice payments made THIS month)
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-
     const monthlyInvoicePayments = invoicePayments
-      .filter(p => {
-        const d = new Date(p.date);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-      })
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    const rawBalance = monthlyIncome - debitExpenses - monthlyInvoicePayments;
-    const availableBalance = Math.max(0, rawBalance);
-
-    // Net Worth = Assets (Cash) - Liabilities (Debt)
-    // We use the rawBalance for Net Worth to reflect the true financial position (including deficits/overdrafts),
-    // even if the displayed 'Available Balance' is clamped to 0 for UI friendliness.
-    const netWorth = rawBalance - Math.max(0, creditExpenses - monthlyInvoicePayments);
+        .filter(p => {
+            const d = new Date(p.date);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        })
+        .reduce((sum, p) => sum + p.amount, 0);
 
     // For now, projection equals available balance since we don't have future recurring items logic yet.
     const projection = availableBalance;
@@ -53,7 +44,7 @@ export const useFinanceEngine = () => {
       netWorth,
       monthlyInvoicePayments,
     };
-  }, [expenses, incomes, budgets, goals, invoicePayments]);
+  }, [expenses, incomes, budgets, goals, invoicePayments, financialSummary]);
 
   const calculateGoalETA = (goal: Goal): string => {
     if (goal.type === 'spend_limit') {

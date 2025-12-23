@@ -195,52 +195,77 @@ app.get('/finance/summary', authMiddleware, async (req: AuthRequest, res) => {
         const userId = req.user!.userId;
         const now = new Date();
         const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         endOfMonth.setHours(23, 59, 59, 999);
 
-        const [incomes, expenses, invoicePayments] = await Promise.all([
-            prisma.income.findMany({
-                where: { userId, date: { gte: startOfCurrentMonth, lte: endOfMonth } }
+        // Fetch ALL TIME totals for Balance Calculation
+        // This is efficient with aggregate
+        const [
+            totalIncomeAgg,
+            totalDebitExpensesAgg,
+            totalInvoicePaymentsAgg,
+            totalCreditExpensesAgg
+        ] = await Promise.all([
+            prisma.income.aggregate({
+                where: { userId },
+                _sum: { value: true }
             }),
-            prisma.expense.findMany({
-                where: { userId, date: { gte: startOfPreviousMonth, lte: endOfMonth } }
+            prisma.expense.aggregate({
+                where: { userId, creditCardId: null },
+                _sum: { value: true }
             }),
-            prisma.invoicePayment.findMany({
-                where: { userId, date: { gte: startOfCurrentMonth, lte: endOfMonth } }
+            prisma.invoicePayment.aggregate({
+                where: { userId },
+                _sum: { amount: true }
+            }),
+            prisma.expense.aggregate({
+                where: { userId, creditCardId: { not: null } },
+                _sum: { value: true }
             })
         ]);
 
-        const monthlyIncome = incomes.reduce((sum, i) => sum + i.value, 0);
-        
-        // Calculate Debit Expenses for Balance (Includes Previous Month + Current Month)
-        const allDebitExpenses = expenses.filter(e => !e.creditCardId).reduce((sum, e) => sum + e.value, 0);
-        
-        // Calculate Monthly Expenses for Display (Current Month Only)
-        const currentMonthExpenses = expenses.filter(e => {
-            const d = new Date(e.date);
-            return d >= startOfCurrentMonth && d <= endOfMonth;
-        });
-        const monthlyTotalDisplay = currentMonthExpenses.reduce((sum, e) => sum + e.value, 0);
+        const totalIncome = totalIncomeAgg._sum.value || 0;
+        const totalDebitExpenses = totalDebitExpensesAgg._sum.value || 0;
+        const totalInvoicePayments = totalInvoicePaymentsAgg._sum.amount || 0;
+        const totalCreditExpenses = totalCreditExpensesAgg._sum.value || 0;
 
-        const creditExpenses = expenses.filter(e => !!e.creditCardId).reduce((sum, e) => sum + e.value, 0);
-        const monthlyInvoicePayments = invoicePayments.reduce((sum, p) => sum + p.amount, 0);
-
-        // Balance Calculation matches frontend: Income (This Month) - Debit Expenses (Last + This Month) - Invoice Payments (This Month)
-        const rawBalance = monthlyIncome - allDebitExpenses - monthlyInvoicePayments;
+        // Balance = All Income - All Debit Expenses - All Invoice Payments
+        const rawBalance = totalIncome - totalDebitExpenses - totalInvoicePayments;
         const availableBalance = Math.max(0, rawBalance);
-        
-        // Net Worth assumes similar logic? Frontend uses rawBalance for netWorth too.
-        // Frontend: const netWorth = rawBalance - Math.max(0, creditExpenses - monthlyInvoicePayments);
-        // Note: creditExpenses in frontend reduces ALL loaded credit expenses.
-        // so we use creditExpenses (from Prev + Current Month) here too.
-        const netWorth = rawBalance - Math.max(0, creditExpenses - monthlyInvoicePayments);
+
+        // Net Worth
+        // Liability = Outstanding Credit Debt = (All Credit Expenses - All Invoice Payments)
+        // If (All Invoice Payments > All Credit Expenses), user overpaid? Or data inconsistency. Max(0, ...) handles it.
+        const creditCardDebt = Math.max(0, totalCreditExpenses - totalInvoicePayments);
+        const netWorth = rawBalance - creditCardDebt;
+
+
+        // Fetch MONTHLY stats for display (e.g. "Receitas" and "Despesas" pills)
+        const [monthlyIncomesAgg, monthlyExpensesAgg] = await Promise.all([
+            prisma.income.aggregate({
+                where: { 
+                    userId, 
+                    date: { gte: startOfCurrentMonth, lte: endOfMonth } 
+                },
+                _sum: { value: true }
+            }),
+            prisma.expense.aggregate({
+                where: { 
+                    userId, 
+                    date: { gte: startOfCurrentMonth, lte: endOfMonth }
+                },
+                _sum: { value: true }
+            })
+        ]);
+
+        const monthlyIncome = monthlyIncomesAgg._sum.value || 0;
+        const monthlyExpenses = monthlyExpensesAgg._sum.value || 0;
 
         res.json({
             availableBalance,
             netWorth,
             monthlyIncome,
-            monthlyExpenses: monthlyTotalDisplay // For display, show only current month
+            monthlyExpenses
         });
     } catch (error: any) {
         console.error('Finance Summary Error:', error);

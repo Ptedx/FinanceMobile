@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
 import { Text, useTheme, FAB, IconButton, Icon } from 'react-native-paper';
 import { useFinanceStore } from '../store/financeStore';
 import { spacing, typography } from '../theme';
@@ -7,13 +7,34 @@ import { ProgressBar } from '../components/ProgressBar';
 import { AddBudgetSheet } from '../components/AddBudgetSheet';
 import { getCategoryLabel, getCategoryIcon, getCategoryColor } from '../constants';
 import { Budget } from '../types';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
 import { formatCurrency } from '../utils/formatters';
 
 export const BudgetsScreen = () => {
   const theme = useTheme();
-  const { getBudgetProgress, addBudget, updateBudget, deleteBudget } = useFinanceStore();
+  const { getBudgetProgress, addBudget, updateBudget, deleteBudget, loadBudgets, loadExpenses } = useFinanceStore();
   const budgetProgress = getBudgetProgress();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const currentMonth = format(new Date(), 'yyyy-MM');
+      // Match initialize logic: load from previous month
+      const startDate = format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd');
+      const endDate = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+
+      await Promise.all([
+        loadBudgets(currentMonth),
+        loadExpenses(startDate, endDate)
+      ]);
+    } catch (error) {
+      console.error("Failed to refresh budgets", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [selectedBudget, setSelectedBudget] = useState<Budget | undefined>(undefined);
@@ -48,7 +69,13 @@ export const BudgetsScreen = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+        }
+      >
         <Text style={styles.headerTitle}>Meus Orçamentos</Text>
 
         {budgetProgress.length === 0 ? (
@@ -129,6 +156,7 @@ const createStyles = (theme: any) =>
     container: {
       flex: 1,
       backgroundColor: theme.colors.background,
+      paddingTop: Platform.OS === 'android' ? 30 : 0,
     },
     content: {
       flex: 1,
